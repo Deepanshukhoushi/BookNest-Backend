@@ -1,0 +1,67 @@
+package com.booknest.authservice.security;
+
+import jakarta.servlet.FilterChain;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import lombok.RequiredArgsConstructor;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
+import org.springframework.stereotype.Component;
+import org.springframework.web.filter.OncePerRequestFilter;
+
+import java.io.IOException;
+import java.util.List;
+
+/**
+ * Security filter that intercepts every HTTP request to validate JWT tokens.
+ * If a valid token is found, it establishes the user's authentication in the
+ * security context.
+ */
+@Component
+@RequiredArgsConstructor
+public class JwtAuthenticationFilter extends OncePerRequestFilter {
+
+    private final JwtUtil jwtUtil;
+
+    // Extracts the JWT from the Authorization header and authenticates the user if
+    // the token is valid
+    @Override
+    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
+            throws ServletException, IOException {
+        String authHeader = request.getHeader("Authorization");
+
+        if (authHeader != null && authHeader.startsWith("Bearer ")) {
+            String token = authHeader.substring(7);
+            if (jwtUtil.validateToken(token)) {
+                String email = jwtUtil.extractUsername(token);
+                String role = normalizeRole(jwtUtil.extractRole(token));
+                Long userId = jwtUtil.extractUserId(token);
+                List<SimpleGrantedAuthority> authorities = List.of(new SimpleGrantedAuthority("ROLE_" + role));
+
+                UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
+                        email, null, authorities);
+                authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+                SecurityContextHolder.getContext().setAuthentication(authentication);
+
+                request.setAttribute("authenticatedSubject", email);
+                request.setAttribute("authenticatedRole", role);
+                if (userId != null) {
+                    request.setAttribute("authenticatedUserId", userId);
+                }
+            }
+        }
+
+        filterChain.doFilter(request, response);
+    }
+
+    private String normalizeRole(String role) {
+        if (role == null || role.isBlank()) {
+            return "USER";
+        }
+        String normalized = role.trim().toUpperCase();
+        return normalized.startsWith("ROLE_") ? normalized.substring("ROLE_".length()) : normalized;
+    }
+}

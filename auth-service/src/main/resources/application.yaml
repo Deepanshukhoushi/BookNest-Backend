@@ -1,0 +1,76 @@
+server:
+  port: ${AUTH_PORT:8082}
+  forward-headers-strategy: framework
+spring:
+  application:
+    name: auth-service
+  config:
+    import: optional:file:.env[.properties],optional:file:../.env[.properties]
+  datasource:
+    url: ${AUTH_DB_URL:jdbc:mysql://localhost:3306/booknest_auth?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC}
+    username: ${AUTH_DB_USERNAME:root}
+    password: ${AUTH_DB_PASSWORD:Deepanshu}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  jpa:
+    hibernate:
+      ddl-auto: ${AUTH_JPA_DDL_AUTO:update}
+    show-sql: ${AUTH_JPA_SHOW_SQL:false}
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.MySQLDialect
+  security:
+    oauth2:
+      client:
+        registration:
+          google:
+            client-id: ${GOOGLE_CLIENT_ID:dummy-google-client-id}
+            client-secret: ${GOOGLE_CLIENT_SECRET:dummy-google-client-secret}
+            scope:
+              - email
+              - profile
+          github:
+            client-id: ${GITHUB_CLIENT_ID:dummy-github-client-id}
+            client-secret: ${GITHUB_CLIENT_SECRET:dummy-github-client-secret}
+            scope:
+              - read:user
+              - user:email
+  mail:
+    host: ${MAIL_HOST:smtp.gmail.com}
+    port: ${MAIL_PORT:587}
+    username: ${MAIL_USERNAME}
+    password: ${MAIL_PASSWORD}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+
+auth:
+  jwt:
+    secret: ${AUTH_JWT_SECRET:my-very-strong-secret-key-with-32-bytes}
+    expiration: ${AUTH_JWT_EXPIRATION:3600000}
+
+eureka:
+  client:
+    service-url:
+      defaultZone: ${EUREKA_URL:http://localhost:8761/eureka/}
+  instance:
+    prefer-ip-address: true
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      show-details: when_authorized
+
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui/index.html
+    try-it-out-enabled: true
+    operations-sorter: method

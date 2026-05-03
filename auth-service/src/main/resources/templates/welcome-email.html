@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Welcome to Booknest</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            margin: 0;
+            padding: 0;
+            background-color: #f9f9f9;
+        }
+        .container {
+            max-width: 600px;
+            margin: 20px auto;
+            background: #ffffff;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+        }
+        .header {
+            background: linear-gradient(135deg, #7f1635 0%, #4a0d1f 100%);
+            padding: 40px 20px;
+            text-align: center;
+            color: white;
+        }
+        .header h1 {
+            margin: 0;
+            font-size: 28px;
+            letter-spacing: 1px;
+        }
+        .content {
+            padding: 40px 30px;
+        }
+        .greeting {
+            font-size: 20px;
+            font-weight: 600;
+            color: #7f1635;
+            margin-bottom: 20px;
+        }
+        .message {
+            font-size: 16px;
+            color: #555;
+            margin-bottom: 30px;
+        }
+        .cta-container {
+            text-align: center;
+            margin-top: 20px;
+        }
+        .btn {
+            background-color: #7f1635;
+            color: white !important;
+            padding: 14px 35px;
+            text-decoration: none;
+            border-radius: 30px;
+            font-weight: 600;
+            display: inline-block;
+            transition: background 0.3s;
+        }
+        .footer {
+            background-color: #f1f1f1;
+            padding: 20px;
+            text-align: center;
+            font-size: 13px;
+            color: #888;
+        }
+        .highlight {
+            color: #7f1635;
+            font-weight: 600;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>BOOKNEST</h1>
+            <p>Your Premium Literary Sanctuary</p>
+        </div>
+        <div class="content">
+            <div class="greeting">Greetings, <span th:text="${name}">Reader</span>!</div>
+            <div class="message">
+                <p>Welcome to <strong>Booknest</strong> – the exclusive digital library curated for connoisseurs of literature and lifelong learners.</p>
+                <p>We are delighted to have you join our circle. Your account is now fully operational, and your digital wallet has been initialized for seamless acquisitions of our curated volumes.</p>
+                <p>From timeless classics to the latest bestsellers, your next great discovery is just a few clicks away.</p>
+            </div>
+            <div class="cta-container">
+                <a href="http://localhost:4200" class="btn">Explore the Library</a>
+            </div>
+        </div>
+        <div class="footer">
+            <p>&copy; 2026 Booknest Global Library. All rights reserved.</p>
+            <p>Designed for the ultimate reading experience.</p>
+        </div>
+    </div>
+</body>
+</html>
