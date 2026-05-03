@@ -1,0 +1,18 @@
+package com.booknest.orderservice.dto;
+
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
+public class WalletRequest {
+    private Long userId;
+    private Long walletId;
+    private Double amount;
+    private Long orderId;
+    private String paymentGateway;
+}
