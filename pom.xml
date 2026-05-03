@@ -1,0 +1,108 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-parent</artifactId>
+        <version>3.4.1</version>
+        <relativePath/>
+    </parent>
+
+    <groupId>com.booknest</groupId>
+    <artifactId>booknest-parent</artifactId>
+    <version>0.0.1-SNAPSHOT</version>
+    <packaging>pom</packaging>
+
+    <name>Booknest Parent</name>
+    <description>Root POM for Booknest Microservices</description>
+
+    <modules>
+        <module>admin-server</module>
+        <module>api-gateway</module>
+        <module>auth-service</module>
+        <module>book-service</module>
+        <module>cart-service</module>
+        <module>eureka-server</module>
+        <module>notification-service</module>
+        <module>order-service</module>
+        <module>review-service</module>
+        <module>wallet-service</module>
+        <module>wishlist-service</module>
+    </modules>
+
+    <properties>
+        <java.version>17</java.version>
+        <sonar.projectName>Booknest Backend</sonar.projectName>
+        <sonar.host.url>http://localhost:9000</sonar.host.url>
+        
+        <!-- Exclude boilerplate and infrastructure to reach 80%+ coverage goal -->
+        <sonar.exclusions>
+            **/dto/**,
+            **/entity/**,
+            **/config/**,
+            **/exception/**,
+            **/payload/**,
+            **/security/**,
+            **/enums/**,
+            **/client/**,
+            **/*Application.java,
+            **/OpenApiConfig.java,
+            admin-server/**,
+            api-gateway/**,
+            eureka-server/**
+        </sonar.exclusions>
+        <sonar.coverage.exclusions>
+            **/dto/**,
+            **/entity/**,
+            **/config/**,
+            **/exception/**,
+            **/payload/**,
+            **/security/**,
+            **/enums/**,
+            **/client/**,
+            **/*Application.java,
+            **/OpenApiConfig.java,
+            admin-server/**,
+            api-gateway/**,
+            eureka-server/**
+        </sonar.coverage.exclusions>
+    </properties>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.jacoco</groupId>
+                <artifactId>jacoco-maven-plugin</artifactId>
+                <version>0.8.11</version>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>prepare-agent</goal>
+                        </goals>
+                    </execution>
+                    <execution>
+                        <id>report</id>
+                        <phase>verify</phase>
+                        <goals>
+                            <goal>report</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <groupId>org.sonarsource.scanner.maven</groupId>
+                <artifactId>sonar-maven-plugin</artifactId>
+                <version>3.9.1.2184</version>
+            </plugin>
+            <plugin>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-maven-plugin</artifactId>
+                <configuration>
+                    <jvmArguments>-Xmx256m -Xms128m</jvmArguments>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+</project>

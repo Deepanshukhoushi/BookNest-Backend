@@ -1,0 +1,390 @@
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: booknest_mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: ${AUTH_DB_PASSWORD:-Deepanshu}
+      MYSQL_DATABASE: booknest_auth
+    ports:
+      - "3307:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${AUTH_DB_PASSWORD:-Deepanshu}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+      - booknest-network
+
+  redis:
+    image: redis:alpine
+    container_name: booknest_redis
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+      - booknest-network
+
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    container_name: booknest_rabbitmq
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "check_running"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+    networks:
+      - booknest-network
+
+  eureka-server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: eureka-server
+    container_name: eureka-server
+    ports:
+      - "8761:8761"
+    environment:
+      - EUREKA_INSTANCE_HOSTNAME=eureka-server
+      - JAVA_TOOL_OPTIONS=-Xms128m -Xmx192m
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8761/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    networks:
+      - booknest-network
+
+  admin-server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: admin-server
+    container_name: admin-server
+    ports:
+      - "9090:9090"
+    environment:
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-server:8761/eureka/
+      - JAVA_TOOL_OPTIONS=-Xms128m -Xmx192m
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:9090/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - booknest-network
+    depends_on:
+      eureka-server:
+        condition: service_healthy
+
+  api-gateway:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: api-gateway
+    container_name: api-gateway
+    ports:
+      - "8080:8080"
+    environment:
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-server:8761/eureka/
+      - AUTH_SERVICE_URL=http://auth-service:8082
+      - AUTH_JWT_SECRET=${AUTH_JWT_SECRET}
+      - JAVA_TOOL_OPTIONS=-Xms128m -Xmx192m
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 90s
+    networks:
+      - booknest-network
+    depends_on:
+      eureka-server:
+        condition: service_healthy
+
+  auth-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: auth-service
+    container_name: auth-service
+    ports:
+      - "8082:8082"
+    environment:
+      - AUTH_DB_URL=jdbc:mysql://mysql:3306/booknest_auth?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+      - AUTH_DB_USERNAME=${AUTH_DB_USERNAME:-root}
+      - AUTH_DB_PASSWORD=${AUTH_DB_PASSWORD:-Deepanshu}
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-server:8761/eureka/
+      - AUTH_JWT_SECRET=${AUTH_JWT_SECRET}
+      - AUTH_JWT_EXPIRATION=${AUTH_JWT_EXPIRATION:-86400000}
+      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
+      - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
+      - GITHUB_CLIENT_ID=${GITHUB_CLIENT_ID}
+      - GITHUB_CLIENT_SECRET=${GITHUB_CLIENT_SECRET}
+      - JAVA_TOOL_OPTIONS=-Xms128m -Xmx192m
+      - OAUTH2_REDIRECT_URL=http://localhost/oauth2/redirect
+      - MANAGEMENT_HEALTH_MAIL_ENABLED=false
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8082/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - booknest-network
+    volumes:
+      - ./auth-service/uploads:/app/uploads
+    depends_on:
+      mysql:
+        condition: service_healthy
+      eureka-server:
+        condition: service_healthy
+
+  book-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: book-service
+    container_name: book-service
+    ports:
+      - "8081:8081"
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:mysql://mysql:3306/booknest_book?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+      - SPRING_DATASOURCE_USERNAME=${AUTH_DB_USERNAME:-root}
+      - SPRING_DATASOURCE_PASSWORD=${AUTH_DB_PASSWORD:-Deepanshu}
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-server:8761/eureka/
+      - AUTH_JWT_SECRET=${AUTH_JWT_SECRET}
+      - JAVA_TOOL_OPTIONS=-Xms128m -Xmx192m
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8081/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - booknest-network
+    volumes:
+      - ./book-service/uploads:/app/uploads
+    depends_on:
+      mysql:
+        condition: service_healthy
+      eureka-server:
+        condition: service_healthy
+
+  cart-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: cart-service
+    container_name: cart-service
+    ports:
+      - "8083:8083"
+    environment:
+      - CART_DB_URL=jdbc:mysql://mysql:3306/booknest_cart?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+      - CART_DB_USERNAME=${CART_DB_USERNAME:-root}
+      - CART_DB_PASSWORD=${CART_DB_PASSWORD:-Deepanshu}
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-server:8761/eureka/
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - AUTH_JWT_SECRET=${AUTH_JWT_SECRET}
+      - JAVA_TOOL_OPTIONS=-Xms128m -Xmx192m
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8083/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - booknest-network
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      eureka-server:
+        condition: service_healthy
+
+  order-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: order-service
+    container_name: order-service
+    ports:
+      - "8084:8084"
+    environment:
+      - ORDER_DB_URL=jdbc:mysql://mysql:3306/booknest_order?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+      - ORDER_DB_USERNAME=${ORDER_DB_USERNAME:-root}
+      - ORDER_DB_PASSWORD=${ORDER_DB_PASSWORD:-Deepanshu}
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-server:8761/eureka/
+      - AUTH_JWT_SECRET=${AUTH_JWT_SECRET}
+      - RABBITMQ_HOST=rabbitmq
+      - JAVA_TOOL_OPTIONS=-Xms128m -Xmx192m
+      - RAZORPAY_KEY_ID=${RAZORPAY_KEY_ID}
+      - RAZORPAY_KEY_SECRET=${RAZORPAY_KEY_SECRET}
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8084/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - booknest-network
+    depends_on:
+      mysql:
+        condition: service_healthy
+      eureka-server:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+
+  wallet-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: wallet-service
+    container_name: wallet-service
+    ports:
+      - "8085:8085"
+    environment:
+      - WALLET_DB_URL=jdbc:mysql://mysql:3306/booknest_wallet?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+      - WALLET_DB_USERNAME=${WALLET_DB_USERNAME:-root}
+      - WALLET_DB_PASSWORD=${WALLET_DB_PASSWORD:-Deepanshu}
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-server:8761/eureka/
+      - AUTH_JWT_SECRET=${AUTH_JWT_SECRET}
+      - JAVA_TOOL_OPTIONS=-Xms128m -Xmx192m
+      - RAZORPAY_KEY_ID=${RAZORPAY_KEY_ID}
+      - RAZORPAY_KEY_SECRET=${RAZORPAY_KEY_SECRET}
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8085/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - booknest-network
+    depends_on:
+      mysql:
+        condition: service_healthy
+      eureka-server:
+        condition: service_healthy
+
+  review-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: review-service
+    container_name: review-service
+    ports:
+      - "8086:8086"
+    environment:
+      - REVIEW_DB_URL=jdbc:mysql://mysql:3306/booknest_review?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+      - REVIEW_DB_USERNAME=${REVIEW_DB_USERNAME:-root}
+      - REVIEW_DB_PASSWORD=${REVIEW_DB_PASSWORD:-Deepanshu}
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-server:8761/eureka/
+      - AUTH_JWT_SECRET=${AUTH_JWT_SECRET}
+      - JAVA_TOOL_OPTIONS=-Xms128m -Xmx192m
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8086/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - booknest-network
+    depends_on:
+      mysql:
+        condition: service_healthy
+      eureka-server:
+        condition: service_healthy
+
+  notification-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: notification-service
+    container_name: notification-service
+    ports:
+      - "8087:8087"
+    environment:
+      - NOTIF_DB_URL=jdbc:mysql://mysql:3306/booknest_notification?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+      - NOTIF_DB_USERNAME=${NOTIF_DB_USERNAME:-root}
+      - NOTIF_DB_PASSWORD=${NOTIF_DB_PASSWORD:-Deepanshu}
+      - MAIL_HOST=${MAIL_HOST}
+      - MAIL_PORT=${MAIL_PORT}
+      - MAIL_USERNAME=${MAIL_USERNAME}
+      - MAIL_PASSWORD=${MAIL_PASSWORD}
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-server:8761/eureka/
+      - AUTH_JWT_SECRET=${AUTH_JWT_SECRET}
+      - RABBITMQ_HOST=rabbitmq
+      - JAVA_TOOL_OPTIONS=-Xms128m -Xmx192m
+      - MANAGEMENT_HEALTH_MAIL_ENABLED=false
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8087/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - booknest-network
+    depends_on:
+      mysql:
+        condition: service_healthy
+      eureka-server:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+
+  wishlist-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: wishlist-service
+    container_name: wishlist-service
+    ports:
+      - "8089:8089"
+    environment:
+      - WISHLIST_DB_URL=jdbc:mysql://mysql:3306/booknest_wishlist?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+      - WISHLIST_DB_USERNAME=${WISHLIST_DB_USERNAME:-root}
+      - WISHLIST_DB_PASSWORD=${WISHLIST_DB_PASSWORD:-Deepanshu}
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-server:8761/eureka/
+      - AUTH_JWT_SECRET=${AUTH_JWT_SECRET}
+      - WISHLIST_PORT=8089
+      - JAVA_TOOL_OPTIONS=-Xms128m -Xmx192m
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8089/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - booknest-network
+    depends_on:
+      mysql:
+        condition: service_healthy
+      eureka-server:
+        condition: service_healthy
+
+  booknest-frontend:
+    build:
+      context: ../booknest-frontend
+      dockerfile: Dockerfile
+    container_name: booknest-frontend
+    ports:
+      - "80:80"
+    networks:
+      - booknest-network
+    depends_on:
+      api-gateway:
+        condition: service_healthy
+
+networks:
+  booknest-network:
+    driver: bridge
+
+volumes:
+  mysql_data:
