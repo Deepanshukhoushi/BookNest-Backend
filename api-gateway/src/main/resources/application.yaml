@@ -1,0 +1,230 @@
+server:
+  port: ${GATEWAY_PORT:8080}
+
+spring:
+  application:
+    name: api-gateway
+  config:
+    import: optional:file:.env[.properties],optional:file:../.env[.properties]
+  cloud:
+    gateway:
+      forwarded:
+        enabled: true
+      globalcors:
+        cors-configurations:
+          '[/**]':
+            allowedOriginPatterns:
+              - ${GATEWAY_ALLOWED_ORIGIN_PATTERNS:http://localhost:4200,http://localhost}
+            allowedMethods:
+              - GET
+              - POST
+              - PUT
+              - DELETE
+              - OPTIONS
+            allowedHeaders: "*"
+      routes:
+        - id: auth-service
+          uri: lb://AUTH-SERVICE
+          predicates:
+            - Path=/api/v1/auth/**
+
+        - id: user-service
+          uri: lb://AUTH-SERVICE
+          predicates:
+            - Path=/api/v1/users/**
+          filters:
+            - AuthenticationFilter
+
+        - id: book-service
+          uri: lb://BOOK-SERVICE
+          predicates:
+            - Path=/api/v1/books/**
+          filters:
+            - AuthenticationFilter
+
+        - id: cart-service
+          uri: lb://CART-SERVICE
+          predicates:
+            - Path=/api/v1/cart/**
+          filters:
+            - AuthenticationFilter
+
+        - id: order-service
+          uri: lb://ORDER-SERVICE
+          predicates:
+            - Path=/api/v1/orders/**
+          filters:
+            - AuthenticationFilter
+
+        - id: payment-service
+          uri: lb://ORDER-SERVICE
+          predicates:
+            - Path=/api/v1/payments/**
+          filters:
+            - AuthenticationFilter
+
+        - id: wallet-service
+          uri: lb://WALLET-SERVICE
+          predicates:
+            - Path=/api/v1/wallet/**
+          filters:
+            - AuthenticationFilter
+
+        - id: review-service
+          uri: lb://REVIEW-SERVICE
+          predicates:
+            - Path=/api/v1/reviews/**
+          filters:
+            - AuthenticationFilter
+
+        - id: wishlist-service
+          uri: lb://WISHLIST-SERVICE
+          predicates:
+            - Path=/api/v1/wishlist/**
+          filters:
+            - AuthenticationFilter
+
+        - id: notification-service
+          uri: lb://NOTIFICATION-SERVICE
+          predicates:
+            - Path=/api/v1/notifications/**
+          filters:
+            - AuthenticationFilter
+
+        - id: oauth2-auth-route
+          uri: lb://AUTH-SERVICE
+          predicates:
+            - Path=/oauth2/authorization/**
+
+        - id: oauth2-login-route
+          uri: lb://AUTH-SERVICE
+          predicates:
+            - Path=/login/oauth2/code/**
+
+        - id: auth-uploads
+          uri: lb://AUTH-SERVICE
+          predicates:
+            - Path=/uploads/profiles/**
+
+        - id: book-uploads
+          uri: lb://BOOK-SERVICE
+          predicates:
+            - Path=/uploads/books/**
+
+        # -------------------------------------------------------
+        # Swagger API-Docs Routes (PUBLIC - no auth filter)
+        # Each strips the /service-prefix → /v3/api-docs
+        # on the target microservice.
+        # -------------------------------------------------------
+        - id: auth-service-docs
+          uri: lb://AUTH-SERVICE
+          predicates:
+            - Path=/auth/v3/api-docs
+          filters:
+            - StripPrefix=1
+
+        - id: book-service-docs
+          uri: lb://BOOK-SERVICE
+          predicates:
+            - Path=/books/v3/api-docs
+          filters:
+            - StripPrefix=1
+
+        - id: cart-service-docs
+          uri: lb://CART-SERVICE
+          predicates:
+            - Path=/cart/v3/api-docs
+          filters:
+            - StripPrefix=1
+
+        - id: order-service-docs
+          uri: lb://ORDER-SERVICE
+          predicates:
+            - Path=/orders/v3/api-docs
+          filters:
+            - StripPrefix=1
+
+        - id: payment-service-docs
+          uri: lb://ORDER-SERVICE
+          predicates:
+            - Path=/payments/v3/api-docs
+          filters:
+            - StripPrefix=1
+
+        - id: wallet-service-docs
+          uri: lb://WALLET-SERVICE
+          predicates:
+            - Path=/wallet/v3/api-docs
+          filters:
+            - StripPrefix=1
+
+        - id: review-service-docs
+          uri: lb://REVIEW-SERVICE
+          predicates:
+            - Path=/reviews/v3/api-docs
+          filters:
+            - StripPrefix=1
+
+        - id: wishlist-service-docs
+          uri: lb://WISHLIST-SERVICE
+          predicates:
+            - Path=/wishlist/v3/api-docs
+          filters:
+            - StripPrefix=1
+
+        - id: notification-service-docs
+          uri: lb://NOTIFICATION-SERVICE
+          predicates:
+            - Path=/notifications/v3/api-docs
+          filters:
+            - StripPrefix=1
+
+eureka:
+  client:
+    service-url:
+      defaultZone: ${EUREKA_URL:http://localhost:8761/eureka/}
+  instance:
+    prefer-ip-address: true
+
+auth:
+  jwt:
+    secret: ${AUTH_JWT_SECRET:my-very-strong-secret-key-with-32-bytes}
+  service:
+    url: ${AUTH_SERVICE_URL:http://localhost:8082}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      show-details: when_authorized
+
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui/index.html
+    disable-swagger-default-url: true
+    oauth:
+      server-url: ${GATEWAY_URL:http://localhost:8080}
+    urls:
+      - name: auth-service
+        url: /auth/v3/api-docs
+      - name: book-service
+        url: /books/v3/api-docs
+      - name: cart-service
+        url: /cart/v3/api-docs
+      - name: order-service
+        url: /orders/v3/api-docs
+      - name: payment-service
+        url: /payments/v3/api-docs
+      - name: wallet-service
+        url: /wallet/v3/api-docs
+      - name: review-service
+        url: /reviews/v3/api-docs
+      - name: wishlist-service
+        url: /wishlist/v3/api-docs
+      - name: notification-service
+        url: /notifications/v3/api-docs
