@@ -111,8 +111,6 @@ The backend is composed of several independent microservices communicating synch
    cd <service-name>
    mvn spring-boot:run
    ```
-   *(Alternatively, use the `run_all.bat` script provided in the root directory for Windows).*
-
 ---
 
 ## 🐳 Docker Deployment
