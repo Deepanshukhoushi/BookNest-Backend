@@ -11,10 +11,17 @@ spring:
         order-out-0:
           destination: order-events
   rabbitmq:
-    host: ${RABBITMQ_HOST:rabbitmq}
+    host: ${RABBITMQ_HOST:localhost}
     port: ${RABBITMQ_PORT:5672}
-    username: guest
-    password: guest
+    username: ${RABBITMQ_USERNAME:guest}
+    password: ${RABBITMQ_PASSWORD:guest}
+    connection-timeout: 10000
+    listener:
+      simple:
+        retry:
+          enabled: true
+          initial-interval: 3000
+          max-attempts: 5
   config:
     import: optional:file:.env[.properties],optional:file:../.env[.properties]
   datasource:
@@ -45,6 +52,14 @@ management:
   endpoint:
     health:
       show-details: always
+  health:
+    rabbit:
+      enabled: true   # keep it visible but...
+    # Treat rabbit as non-critical: service stays UP even if rabbit resets briefly
+    livenessState:
+      enabled: true
+    readinessState:
+      enabled: true
 
 springdoc:
   api-docs:
