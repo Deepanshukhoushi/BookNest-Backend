@@ -77,7 +77,7 @@ public class AuthServiceImpl implements AuthService {
         }
 
         User user = userRepository.findByEmail(request.getEmail())
-                .orElseThrow(() -> new RuntimeException("Account not found"));
+                .orElseThrow(() -> new java.util.NoSuchElementException("Account not found"));
 
         user.setPasswordHash(passwordEncoder.encode(request.getNewPassword()));
         userRepository.save(user);
@@ -129,7 +129,7 @@ public class AuthServiceImpl implements AuthService {
     public String login(LoginRequest request) {
 
         User user = userRepository.findByEmail(request.getEmail())
-                .orElseThrow(() -> new RuntimeException("User not found"));
+                .orElseThrow(() -> new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.UNAUTHORIZED, "User not found"));
 
         if (Boolean.TRUE.equals(user.getSuspended())) {
             throw new IllegalArgumentException("Account is suspended");
@@ -185,7 +185,7 @@ public class AuthServiceImpl implements AuthService {
     public String changePassword(String email, com.booknest.authservice.dto.ChangePasswordRequest request) {
 
         User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new RuntimeException("User not found"));
+                .orElseThrow(() -> new java.util.NoSuchElementException("User not found"));
 
         if (!passwordEncoder.matches(request.getOldPassword(), user.getPasswordHash())) {
             throw new IllegalArgumentException("Current password is incorrect");
@@ -242,14 +242,14 @@ public class AuthServiceImpl implements AuthService {
     @Override
     public com.booknest.authservice.dto.UserResponse getUserProfile(Long userId) {
         User user = userRepository.findByUserId(userId)
-                .orElseThrow(() -> new RuntimeException("User not found"));
+                .orElseThrow(() -> new java.util.NoSuchElementException("User not found"));
         return mapToUserResponse(user);
     }
 
     @Override
     public String uploadProfileImage(Long userId, org.springframework.web.multipart.MultipartFile file) {
         User user = userRepository.findByUserId(userId)
-                .orElseThrow(() -> new RuntimeException("User not found"));
+                .orElseThrow(() -> new java.util.NoSuchElementException("User not found"));
         
         String imageUrl = fileStorageService.save(file);
         user.setProfileImage(imageUrl);
@@ -269,7 +269,7 @@ public class AuthServiceImpl implements AuthService {
     @org.springframework.transaction.annotation.Transactional
     public com.booknest.authservice.dto.UserResponse updateUserRole(Long userId, Role role) {
         User user = userRepository.findByUserId(userId)
-                .orElseThrow(() -> new RuntimeException("User not found"));
+                .orElseThrow(() -> new java.util.NoSuchElementException("User not found"));
         user.setRole(role);
         userRepository.save(user);
         return mapToUserResponse(user);
@@ -279,7 +279,7 @@ public class AuthServiceImpl implements AuthService {
     @org.springframework.transaction.annotation.Transactional
     public com.booknest.authservice.dto.UserResponse updateSuspendedStatus(Long userId, boolean suspended) {
         User user = userRepository.findByUserId(userId)
-                .orElseThrow(() -> new RuntimeException("User not found"));
+                .orElseThrow(() -> new java.util.NoSuchElementException("User not found"));
         user.setSuspended(suspended);
         userRepository.save(user);
         return mapToUserResponse(user);
@@ -289,7 +289,7 @@ public class AuthServiceImpl implements AuthService {
     @org.springframework.transaction.annotation.Transactional
     public void deleteUser(Long userId) {
         userRepository.findByUserId(userId)
-                .orElseThrow(() -> new RuntimeException("User not found"));
+                .orElseThrow(() -> new java.util.NoSuchElementException("User not found"));
         userRepository.deleteByUserId(userId);
     }
 
@@ -301,7 +301,7 @@ public class AuthServiceImpl implements AuthService {
         }
 
         User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new RuntimeException("User not found"));
+                .orElseThrow(() -> new java.util.NoSuchElementException("User not found"));
 
         user.setFullName(name.trim());
         if (profileImage != null && !profileImage.trim().isEmpty()) {

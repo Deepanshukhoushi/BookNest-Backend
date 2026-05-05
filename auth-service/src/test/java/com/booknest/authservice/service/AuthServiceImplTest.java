@@ -364,7 +364,7 @@ public class AuthServiceImplTest {
         when(userRepository.findByUserId(99L)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> authService.getUserProfile(99L))
-                .isInstanceOf(RuntimeException.class)
+                .isInstanceOf(java.util.NoSuchElementException.class)
                 .hasMessageContaining("User not found");
     }
 
@@ -374,7 +374,7 @@ public class AuthServiceImplTest {
         when(userRepository.findByUserId(99L)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> authService.uploadProfileImage(99L, file))
-                .isInstanceOf(RuntimeException.class)
+                .isInstanceOf(java.util.NoSuchElementException.class)
                 .hasMessageContaining("User not found");
     }
 

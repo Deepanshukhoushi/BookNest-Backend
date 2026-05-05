@@ -37,8 +37,7 @@ public class User {
 	private Long userId;
 	
 	@NotBlank(message = "Full name is required")
-	@Size(min = 3, max = 50)
-	@Pattern(regexp = "^[A-Z][a-z]+(\\s[A-Z][a-z]+)*$", message = "Each word in name must start with a capital letter")
+	@Size(min = 2, max = 100)
 	private String fullName;
 	
 	@NotBlank(message = "Email is required")

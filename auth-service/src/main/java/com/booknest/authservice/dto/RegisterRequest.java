@@ -8,7 +8,6 @@ import lombok.Data;
 @Data
 public class RegisterRequest {
 	@NotBlank(message = "Full name is required")
-	@Pattern(regexp = "^[A-Z][a-z]+(\\s[A-Z][a-z]+)*$", message = "Each word in name must start with a capital letter")
 	private String fullName;
 	
 	@NotBlank(message = "Email is required")
