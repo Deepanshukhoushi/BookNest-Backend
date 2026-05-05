@@ -50,7 +50,7 @@ public class OrderRepositoryTest {
                 .amountPaid(19.99)
                 .modeOfPayment("RAZORPAY")
                 .razorpayOrderId("rzp_order_1")
-                .orderStatus(OrderStatus.PAYMENT_PENDING)
+                .orderStatus(OrderStatus.PLACED)
                 .orderDate(java.time.LocalDateTime.now())
                 .build();
         orderRepository.save(order);

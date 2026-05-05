@@ -90,7 +90,7 @@ public class OrderServiceImpl implements OrderService {
                         .amountPaid(calculateLineItemAmount(book, item.getQuantity()))
                         .modeOfPayment("ONLINE")
                         .paymentMethod("ONLINE")
-                        .orderStatus(OrderStatus.PAYMENT_PENDING)
+                        .orderStatus(OrderStatus.PLACED)
                         .quantity(item.getQuantity())
                         .bookId(item.getBookId())
                         .bookName(book.getTitle())
@@ -199,6 +199,8 @@ public class OrderServiceImpl implements OrderService {
     public Order changeStatus(Long orderId, OrderStatus status) {
         Order order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new RuntimeException("Order not found"));
+        
+        validateStatusTransition(order.getOrderStatus(), status);
         order.setOrderStatus(status);
         
         // Add to history
@@ -775,9 +777,35 @@ public class OrderServiceImpl implements OrderService {
 
     private boolean canCancel(OrderStatus status) {
         return status != null && switch (status) {
-            case PLACED, PAID, PAYMENT_PENDING, PENDING -> true;
+            case PLACED, CONFIRMED, PAID -> true;
             default -> false;
         };
+    }
+
+    private void validateStatusTransition(OrderStatus current, OrderStatus next) {
+        if (current == next) return;
+        if (current == OrderStatus.CANCELLED || current == OrderStatus.DELIVERED || current == OrderStatus.FAILED) {
+            throw new IllegalStateException("Cannot change status of a terminal order");
+        }
+        
+        // Cancellation is always allowed from non-terminal pre-shipment states
+        if (next == OrderStatus.CANCELLED) {
+            if (canCancel(current)) return;
+            throw new IllegalStateException("Order cannot be cancelled after shipping");
+        }
+
+        boolean isValid = switch (current) {
+            case PLACED -> next == OrderStatus.CONFIRMED || next == OrderStatus.PAID || next == OrderStatus.CANCELLED;
+            case CONFIRMED -> next == OrderStatus.PAID || next == OrderStatus.SHIPPED || next == OrderStatus.CANCELLED;
+            case PAID -> next == OrderStatus.SHIPPED || next == OrderStatus.CANCELLED;
+            case SHIPPED -> next == OrderStatus.OUT_FOR_DELIVERY;
+            case OUT_FOR_DELIVERY -> next == OrderStatus.DELIVERED;
+            default -> false;
+        };
+
+        if (!isValid) {
+            throw new IllegalStateException("Invalid status transition: " + current + " -> " + next);
+        }
     }
 
     private boolean usesWallet(Order order) {

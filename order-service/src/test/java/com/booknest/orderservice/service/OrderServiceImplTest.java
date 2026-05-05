@@ -813,7 +813,7 @@ public class OrderServiceImplTest {
     void testHandlePaymentWebhook_PaymentFailed() {
         String payload = "{\"event\":\"payment.failed\",\"payload\":{\"payment\":{\"entity\":{" +
                 "\"order_id\":\"rzp_f1\",\"id\":\"pay_f\",\"amount\":10000}}}}";
-        Order order = Order.builder().amountPaid(100.0).orderStatus(OrderStatus.PAYMENT_PENDING).build();
+        Order order = Order.builder().amountPaid(100.0).orderStatus(OrderStatus.PLACED).build();
         when(razorpayService.verifyWebhookSignature(payload, "sig")).thenReturn(true);
         when(orderRepository.findByRazorpayOrderId("rzp_f1"))
                 .thenReturn(java.util.Arrays.asList(order));
