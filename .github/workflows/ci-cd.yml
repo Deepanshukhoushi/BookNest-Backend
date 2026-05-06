@@ -27,11 +27,11 @@ jobs:
       - name: Build and Test
         run: mvn clean test -DskipTests
 
-#      - name: SonarQube Scan
-#        env:
-#          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-#          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
-#        run: mvn sonar:sonar -Dsonar.token=${{ secrets.SONAR_TOKEN }} -Dsonar.host.url=${{ secrets.SONAR_HOST_URL }}
+      - name: SonarQube Scan
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+        run: mvn sonar:sonar -Dsonar.token=${{ secrets.SONAR_TOKEN }} -Dsonar.host.url=${{ secrets.SONAR_HOST_URL }}
 
   deploy:
     needs: test-and-analyze
@@ -39,7 +39,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Deploy to EC2
-        uses: appleboy/ssh-action@v1.0.3
+        if: github.ref == 'refs/heads/service/api-gateway'
+        uses: appleboy/ssh-action@master
         with:
           host: ${{ secrets.EC2_HOST }}
           username: ${{ secrets.EC2_USERNAME }}
@@ -51,11 +52,18 @@ jobs:
 
             # Clone or Pull Backend
             if [ ! -d "booknest-backend" ]; then
-              git clone https://github.com/deepanshusingh-25/Booknest-Backend.git booknest-backend
+              git clone https://github.com/Deepanshukhoushi/BookNest-Backend.git booknest-backend
             fi
             cd booknest-backend
             git checkout service/api-gateway
             git pull origin service/api-gateway
-            
-            # Start the containers
-            docker-compose up -d --build
+
+            # Clone Frontend if not present (needed for some build contexts)
+            cd ..
+            if [ ! -d "booknest-frontend" ]; then
+              git clone https://github.com/Deepanshukhoushi/BookNest-Frontend.git booknest-frontend
+            fi
+
+            # Build and restart all containers
+            cd booknest-backend
+            docker compose up -d --build
