@@ -11,6 +11,15 @@ on:
 jobs:
   test-and-analyze:
     runs-on: ubuntu-latest
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: booknest_db
+        ports:
+          - 3306:3306
+        options: --health-cmd="mysqladmin ping" --health-interval=10s --health-timeout=5s --health-retries=3
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -25,7 +34,11 @@ jobs:
           cache: maven
 
       - name: Build and Test
-        run: mvn clean test -DskipTests
+        run: mvn clean test
+        env:
+          SPRING_DATASOURCE_URL: jdbc:mysql://localhost:3306/booknest_db
+          SPRING_DATASOURCE_USERNAME: root
+          SPRING_DATASOURCE_PASSWORD: root
 
       - name: SonarQube Scan
         env:
@@ -52,16 +65,16 @@ jobs:
 
             # Clone or Pull Backend
             if [ ! -d "booknest-backend" ]; then
-              git clone https://github.com/Deepanshukhoushi/BookNest-Backend.git booknest-backend
+              git clone https://x-access-token:${{ secrets.GH_PAT }}@github.com/Deepanshukhoushi/BookNest-Backend.git booknest-backend
             fi
             cd booknest-backend
             git checkout service/api-gateway
-            git pull origin service/api-gateway
+            git pull https://x-access-token:${{ secrets.GH_PAT }}@github.com/Deepanshukhoushi/BookNest-Backend.git service/api-gateway
 
             # Clone Frontend if not present (needed for some build contexts)
             cd ..
             if [ ! -d "booknest-frontend" ]; then
-              git clone https://github.com/Deepanshukhoushi/BookNest-Frontend.git booknest-frontend
+              git clone https://x-access-token:${{ secrets.GH_PAT }}@github.com/Deepanshukhoushi/BookNest-Frontend.git booknest-frontend
             fi
 
             # Build and restart all containers
