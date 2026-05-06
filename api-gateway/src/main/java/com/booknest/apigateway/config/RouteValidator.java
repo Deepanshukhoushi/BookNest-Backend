@@ -35,6 +35,11 @@ public class RouteValidator {
             request -> {
                 String path = request.getURI().getPath();
 
+                // Always allow preflight (OPTIONS) requests to bypass security for CORS to work
+                if (request.getMethod() != null && request.getMethod().name().equals("OPTIONS")) {
+                    return false;
+                }
+
                 // Allow public browsing of books (GET only). Mutations remain secured.
                 if (path.startsWith("/api/v1/books") && request.getMethod() != null && request.getMethod().name().equals("GET")) {
                     return false;
