@@ -34,7 +34,7 @@
 
     <properties>
         <java.version>17</java.version>
-        <sonar.projectKey>Deepanshukhoushi_BookNest-Backend</sonar.projectKey>
+        <sonar.projectKey>Deepanshukhoushi_BookNest-Backend_${project.artifactId}</sonar.projectKey>
         <sonar.organization>deepanshukhoushi</sonar.organization>
         <sonar.host.url>https://sonarcloud.io</sonar.host.url>
         
