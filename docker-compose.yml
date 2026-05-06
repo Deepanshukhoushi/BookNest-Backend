@@ -373,6 +373,8 @@ services:
     build:
       context: ../booknest-frontend
       dockerfile: Dockerfile
+      args:
+        - NG_APP_API_BASE_URL=${NG_APP_API_BASE_URL:-/api/v1}
     container_name: booknest-frontend
     ports:
       - "80:80"
