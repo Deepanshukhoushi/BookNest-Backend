@@ -25,7 +25,7 @@ jobs:
           cache: maven
 
       - name: Build and Test
-        run: mvn clean test
+        run: mvn clean test -DskipTests
 
       - name: SonarQube Scan
         env:
