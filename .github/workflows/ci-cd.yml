@@ -34,13 +34,12 @@ jobs:
           cache: maven
 
       - name: Build and Test
-        run: mvn clean test
+        run: mvn clean test -pl "!eureka-server"
         env:
           SPRING_DATASOURCE_URL: jdbc:mysql://localhost:3306/booknest_db
           SPRING_DATASOURCE_USERNAME: root
           SPRING_DATASOURCE_PASSWORD: root
           SPRING_DATASOURCE_DRIVER_CLASS_NAME: com.mysql.cj.jdbc.Driver
-          EUREKA_CLIENT_ENABLED: false
 
       - name: SonarQube Scan
         env:

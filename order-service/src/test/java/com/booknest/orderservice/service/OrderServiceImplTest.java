@@ -215,9 +215,9 @@ public class OrderServiceImplTest {
         when(orderRepository.findById(1L)).thenReturn(Optional.of(order));
         when(orderRepository.save(any(Order.class))).thenAnswer(i -> i.getArgument(0));
 
-        Order result = orderService.changeStatus(1L, OrderStatus.SHIPPED);
+        Order result = orderService.changeStatus(1L, OrderStatus.CONFIRMED);
 
-        assertThat(result.getOrderStatus()).isEqualTo(OrderStatus.SHIPPED);
+        assertThat(result.getOrderStatus()).isEqualTo(OrderStatus.CONFIRMED);
     }
 
     @Test
