@@ -9,13 +9,13 @@ import com.booknest.notificationservice.dto.OrderEvent;
 import com.booknest.notificationservice.dto.UserDTO;
 import com.booknest.notificationservice.entity.Notification;
 import com.booknest.notificationservice.entity.NotificationType;
+import com.booknest.notificationservice.service.MailService;
 import com.booknest.notificationservice.service.NotificationService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
-import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.function.Consumer;
@@ -31,6 +31,7 @@ import java.util.List;
 public class OrderEventListener {
 
     private final NotificationService notificationService;
+    private final MailService mailService;
     private final AuthClient authClient;
     private final OrderClient orderClient;
     private final BookClient bookClient;
@@ -99,22 +100,15 @@ public class OrderEventListener {
                         .build();
             }
 
-            // Prepare template context
+            // Prepare minimalist template context
             Map<String, Object> variables = new HashMap<>();
-            variables.put("userName", user.getFullName());
-            variables.put("order", order);
-            variables.put("book", book);
+            variables.put("customerName", user.getFullName());
+            variables.put("orderID", event.getOrderId());
+            variables.put("amount", order.getAmountPaid());
             
-            // Format expected delivery (Order Date + 5 days)
-            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("MMMM dd, yyyy");
-            String expectedDelivery = (order.getOrderDate() != null ? order.getOrderDate() : event.getTimestamp())
-                    .plusDays(5).format(formatter);
-            variables.put("expectedDelivery", expectedDelivery);
-
-            notificationService.sendHtmlEmail(
+            mailService.sendOrderConfirmation(
                 user.getEmail(),
-                "Your Booknest Order is Confirmed! (#" + event.getOrderId() + ")",
-                "order-confirmation",
+                "Order Confirmed: #" + event.getOrderId() + " - BookNest",
                 variables
             );
         } catch (Exception e) {

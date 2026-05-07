@@ -5,6 +5,7 @@ import com.booknest.notificationservice.client.BookClient;
 import com.booknest.notificationservice.client.OrderClient;
 import com.booknest.notificationservice.dto.*;
 import com.booknest.notificationservice.entity.Notification;
+import com.booknest.notificationservice.service.MailService;
 import com.booknest.notificationservice.service.NotificationService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -26,6 +27,9 @@ class OrderEventListenerTest {
 
     @Mock
     private NotificationService notificationService;
+
+    @Mock
+    private MailService mailService;
 
     @Mock
     private AuthClient authClient;
@@ -106,7 +110,7 @@ class OrderEventListenerTest {
         orderProcessor.accept(event);
 
         verify(notificationService).sendNotification(any(Notification.class));
-        verify(notificationService).sendHtmlEmail(eq("user@test.com"), contains("Confirmed"), eq("order-confirmation"), anyMap());
+        verify(mailService).sendOrderConfirmation(eq("user@test.com"), contains("Confirmed"), anyMap());
     }
 
     @Test
@@ -174,7 +178,8 @@ class OrderEventListenerTest {
 
         orderProcessor.accept(event);
 
-        verify(notificationService, never()).sendHtmlEmail(anyString(), anyString(), anyString(), anyMap());
+        verify(notificationService).sendNotification(any(Notification.class));
+        verify(mailService, never()).sendOrderConfirmation(anyString(), anyString(), anyMap());
     }
 
     @Test
@@ -205,7 +210,7 @@ class OrderEventListenerTest {
 
         orderProcessor.accept(event);
 
-        verify(notificationService).sendHtmlEmail(eq("user@test.com"), anyString(), eq("order-confirmation"), anyMap());
+        verify(mailService).sendOrderConfirmation(eq("user@test.com"), anyString(), anyMap());
     }
 
     @Test

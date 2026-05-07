@@ -22,6 +22,7 @@ import java.io.IOException;
  */
 @Component
 @RequiredArgsConstructor
+@lombok.extern.slf4j.Slf4j
 public class OAuth2SuccessHandler extends SimpleUrlAuthenticationSuccessHandler {
 
     private final AuthService authService;
@@ -32,30 +33,44 @@ public class OAuth2SuccessHandler extends SimpleUrlAuthenticationSuccessHandler 
     // Processes successful social logins, extracts user details, and redirects to the frontend with a generated token
     @Override
     public void onAuthenticationSuccess(HttpServletRequest request, HttpServletResponse response, Authentication authentication) throws IOException, ServletException {
-        OAuth2AuthenticationToken token = (OAuth2AuthenticationToken) authentication;
-        OAuth2User oAuth2User = token.getPrincipal();
-        
-        String registrationId = token.getAuthorizedClientRegistrationId();
-        AuthProvider provider = AuthProvider.valueOf(registrationId.toUpperCase());
-        
-        String email = oAuth2User.getAttribute("email");
-        String name = oAuth2User.getAttribute("name");
-        
-        if (provider == AuthProvider.GITHUB && email == null) {
-            // Fallback for GitHub if email is private (might need additional API call in production)
-            email = oAuth2User.getAttribute("login") + "@github.com";
-        }
-        
-        if (name == null) {
-            name = oAuth2User.getAttribute("login");
-        }
-        
-        String jwtToken = authService.handleOAuthLogin(email, name, provider);
-        
-        String targetUrl = UriComponentsBuilder.fromUriString(redirectUrl)
-                .queryParam("token", jwtToken)
-                .build().toUriString();
+        try {
+            OAuth2AuthenticationToken token = (OAuth2AuthenticationToken) authentication;
+            OAuth2User oAuth2User = token.getPrincipal();
+            
+            String registrationId = token.getAuthorizedClientRegistrationId();
+            AuthProvider provider = AuthProvider.valueOf(registrationId.toUpperCase());
+            
+            String email = oAuth2User.getAttribute("email");
+            String name = oAuth2User.getAttribute("name");
+            
+            if (provider == AuthProvider.GITHUB && email == null) {
+                // Fallback for GitHub if email is private
+                email = oAuth2User.getAttribute("login") + "@github.com";
+            }
+            
+            if (name == null) {
+                name = oAuth2User.getAttribute("login");
+            }
+            
+            if (email == null) {
+                throw new IllegalArgumentException("Email not provided by " + provider);
+            }
 
-        getRedirectStrategy().sendRedirect(request, response, targetUrl);
+            String jwtToken = authService.handleOAuthLogin(email, name, provider);
+            
+            String targetUrl = UriComponentsBuilder.fromUriString(redirectUrl)
+                    .queryParam("token", jwtToken)
+                    .build().toUriString();
+
+            getRedirectStrategy().sendRedirect(request, response, targetUrl);
+        } catch (Exception e) {
+            log.error("OAuth2 Authentication Success Handler Error: ", e);
+            
+            // Redirect to frontend with error message instead of showing 500 Whitelabel page
+            String errorUrl = UriComponentsBuilder.fromUriString(redirectUrl)
+                    .queryParam("error", e.getMessage())
+                    .build().toUriString();
+            getRedirectStrategy().sendRedirect(request, response, errorUrl);
+        }
     }
 }
