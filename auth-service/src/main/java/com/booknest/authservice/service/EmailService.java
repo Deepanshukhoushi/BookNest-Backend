@@ -23,16 +23,22 @@ public class EmailService {
 
     // Sends an email containing a one-time password (OTP) for account recovery
     public void sendOtpEmail(String to, String otp) {
-        SimpleMailMessage message = new SimpleMailMessage();
-        message.setTo(to);
-        message.setSubject("Booknest Library: Access Recovery Code");
-        message.setText("Greetings,\n\n" +
-                "You have requested a security reset for your Booknest account.\n" +
-                "Your verification code is: " + otp + "\n\n" +
-                "This code will expire in 10 minutes. If you did not request this, please secure your account immediately.\n\n" +
-                "Regards,\n" +
-                "Booknest Security Team");
-        mailSender.send(message);
+        try {
+            SimpleMailMessage message = new SimpleMailMessage();
+            message.setTo(to);
+            message.setSubject("Booknest Library: Access Recovery Code");
+            message.setText("Greetings,\n\n" +
+                    "You have requested a security reset for your Booknest account.\n" +
+                    "Your verification code is: " + otp + "\n\n" +
+                    "This code will expire in 10 minutes. If you did not request this, please secure your account immediately.\n\n" +
+                    "Regards,\n" +
+                    "Booknest Security Team");
+            mailSender.send(message);
+            log.info("OTP successfully dispatched to {}", to);
+        } catch (Exception e) {
+            log.error("Critical failure during OTP dispatch to {}: {}", to, e.getMessage(), e);
+            throw new RuntimeException("Email dispatch failed: " + e.getMessage());
+        }
     }
 
     // Sends a welcome email to a newly registered user using a rich HTML template

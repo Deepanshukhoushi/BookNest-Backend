@@ -246,7 +246,11 @@ public class OrderServiceImpl implements OrderService {
             throw new InvalidPaymentException("Order can no longer be cancelled");
         }
 
-        if (usesWallet(order)) {
+        // If the order was paid (via Wallet or Online), refund the amount to the user's wallet
+        // For WALLET payments, money is debited immediately at checkout even if status is PLACED.
+        boolean shouldRefund = order.getOrderStatus() == OrderStatus.PAID || "WALLET".equalsIgnoreCase(order.getPaymentMethod());
+        
+        if (shouldRefund) {
             refundWallet(order.getUserId(), order.getAmountPaid());
         }
 
@@ -808,9 +812,6 @@ public class OrderServiceImpl implements OrderService {
         }
     }
 
-    private boolean usesWallet(Order order) {
-        return "WALLET".equalsIgnoreCase(resolvePaymentMethod(order));
-    }
 
     private String resolvePaymentMethod(Order order) {
         if (order.getPaymentMethod() != null && !order.getPaymentMethod().isBlank()) {
