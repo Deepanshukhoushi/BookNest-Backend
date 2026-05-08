@@ -21,7 +21,7 @@ public class OrderStatusLog {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false)
+    @Column(name = "orderId", insertable = false, updatable = false)
     private Long orderId;
 
     @Enumerated(EnumType.STRING)

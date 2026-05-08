@@ -147,6 +147,7 @@ public class OrderServiceImpl implements OrderService {
 
         Address address = resolveCheckoutAddress(userId, request.getAddressId());
         Map<Long, BookDTO> booksById = validateStockAndFetchBooks(cart.getItems());
+
         double totalAmount = calculateTotalAmount(cart.getItems(), booksById, request.getDiscountCode());
         List<ReduceStockRequest> reduceRequests = buildReduceRequests(cart.getItems());
 

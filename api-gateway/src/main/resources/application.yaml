@@ -57,6 +57,13 @@ spring:
           filters:
             - AuthenticationFilter
 
+        - id: coupon-service
+          uri: lb://ORDER-SERVICE
+          predicates:
+            - Path=/api/v1/coupons/**
+          filters:
+            - AuthenticationFilter
+
         - id: payment-service
           uri: lb://ORDER-SERVICE
           predicates:
@@ -180,6 +187,13 @@ spring:
           filters:
             - StripPrefix=1
 
+        - id: coupon-service-docs
+          uri: lb://ORDER-SERVICE
+          predicates:
+            - Path=/api/v1/coupons/v3/api-docs
+          filters:
+            - StripPrefix=3
+
 eureka:
   client:
     service-url:
@@ -206,7 +220,7 @@ springdoc:
   api-docs:
     path: /v3/api-docs
   swagger-ui:
-    path: /swagger-ui/index.html
+    path: /swagger-ui.html
     disable-swagger-default-url: true
     oauth:
       server-url: ${GATEWAY_URL:http://localhost:8080}
@@ -219,6 +233,8 @@ springdoc:
         url: /cart/v3/api-docs
       - name: order-service
         url: /orders/v3/api-docs
+      - name: coupon-service
+        url: /api/v1/coupons/v3/api-docs
       - name: payment-service
         url: /payments/v3/api-docs
       - name: wallet-service

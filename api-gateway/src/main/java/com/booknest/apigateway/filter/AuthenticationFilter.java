@@ -68,7 +68,8 @@ public class AuthenticationFilter extends AbstractGatewayFilterFactory<Authentic
 
                     boolean adminOnly =
                             path.startsWith("/api/v1/admin/") ||
-                            (path.startsWith("/api/v1/books") && ("POST".equals(method) || "PUT".equals(method) || "DELETE".equals(method)));
+                            (path.startsWith("/api/v1/books") && ("POST".equals(method) || "PUT".equals(method) || "DELETE".equals(method))) ||
+                            (path.startsWith("/api/v1/coupons") && !path.endsWith("/validate"));
 
                     if (adminOnly && !"ADMIN".equalsIgnoreCase(role)) {
                         throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Admin role required");

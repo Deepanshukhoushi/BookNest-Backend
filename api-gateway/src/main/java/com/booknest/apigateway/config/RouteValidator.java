@@ -21,6 +21,7 @@ public class RouteValidator {
             "/eureka/**",
             "/v3/api-docs/**",
             "/swagger-ui/**",
+            "/swagger-ui.html",
             "/auth/v3/api-docs/**",
             "/books/v3/api-docs/**",
             "/cart/v3/api-docs/**",
@@ -29,6 +30,7 @@ public class RouteValidator {
             "/reviews/v3/api-docs/**",
             "/wishlist/v3/api-docs/**",
             "/notifications/v3/api-docs/**",
+            "/api/v1/coupons/v3/api-docs/**",
             "/actuator/**"
     );
 
