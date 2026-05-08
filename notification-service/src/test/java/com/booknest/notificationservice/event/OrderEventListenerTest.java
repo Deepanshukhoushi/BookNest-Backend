@@ -1,7 +1,6 @@
 package com.booknest.notificationservice.event;
 
 import com.booknest.notificationservice.client.AuthClient;
-import com.booknest.notificationservice.client.BookClient;
 import com.booknest.notificationservice.client.OrderClient;
 import com.booknest.notificationservice.dto.*;
 import com.booknest.notificationservice.entity.Notification;
@@ -37,8 +36,7 @@ class OrderEventListenerTest {
     @Mock
     private OrderClient orderClient;
 
-    @Mock
-    private BookClient bookClient;
+
 
     @InjectMocks
     private OrderEventListener orderEventListener;
@@ -70,7 +68,7 @@ class OrderEventListenerTest {
         orderProcessor.accept(event);
 
         verify(notificationService).sendNotification(any(Notification.class));
-        verify(notificationService).sendEmailAlert(eq("user@test.com"), anyString(), contains("shipped"));
+        verify(notificationService).sendHtmlEmail(eq("user@test.com"), contains("SHIPPED"), eq("status-update-email"), anyMap());
     }
 
     @Test
@@ -97,20 +95,15 @@ class OrderEventListenerTest {
                 .orderDate(LocalDateTime.now())
                 .build();
 
-        BookDTO book = BookDTO.builder()
-                .bookId(501L)
-                .title("Java Guide")
-                .price(49.99)
-                .build();
+
 
         when(authClient.getUserById(1L)).thenReturn(new ApiResponse<>(true, "Success", user));
         when(orderClient.getOrderById(101L)).thenReturn(new ApiResponse<>(true, "Success", order));
-        when(bookClient.getBookById(501L)).thenReturn(new ApiResponse<>(true, "Success", book));
 
         orderProcessor.accept(event);
 
         verify(notificationService).sendNotification(any(Notification.class));
-        verify(mailService).sendOrderConfirmation(eq("user@test.com"), contains("Confirmed"), anyMap());
+        verify(mailService).sendOrderConfirmation(eq("user@test.com"), contains("Order Confirmed"), anyMap());
     }
 
     @Test
@@ -143,7 +136,7 @@ class OrderEventListenerTest {
                 .anyMatch(n -> Long.valueOf(99).equals(n.getUserId()));
         assertTrue(foundAdminNotif, "Admin notification for userId 99 not found");
         
-        verify(notificationService).sendEmailAlert(eq("admin@test.com"), contains("Admin Alert"), anyString());
+        verify(notificationService).sendHtmlEmail(eq("admin@test.com"), contains("Admin Alert"), eq("admin-alert-email"), anyMap());
     }
 
     @Test
@@ -158,7 +151,7 @@ class OrderEventListenerTest {
         orderProcessor.accept(event);
 
         verify(notificationService).sendNotification(any(Notification.class));
-        verify(notificationService, never()).sendEmailAlert(anyString(), anyString(), anyString());
+        verify(notificationService, never()).sendHtmlEmail(anyString(), anyString(), anyString(), anyMap());
     }
 
     @Test
@@ -205,7 +198,6 @@ class OrderEventListenerTest {
 
         when(authClient.getUserById(1L)).thenReturn(new ApiResponse<>(true, "Success", user));
         when(orderClient.getOrderById(101L)).thenReturn(new ApiResponse<>(true, "Success", order));
-        when(bookClient.getBookById(501L)).thenReturn(new ApiResponse<>(true, "Success", null));
         when(authClient.getAllUsers()).thenReturn(new ApiResponse<>(true, "Success", Collections.emptyList()));
 
         orderProcessor.accept(event);
@@ -226,7 +218,7 @@ class OrderEventListenerTest {
 
         orderProcessor.accept(event);
 
-        verify(notificationService, never()).sendEmailAlert(anyString(), anyString(), anyString());
+        verify(notificationService, never()).sendHtmlEmail(anyString(), anyString(), anyString(), anyMap());
     }
     @Test
     void testOrderProcessor_HandlesClientFailure() {
@@ -243,7 +235,7 @@ class OrderEventListenerTest {
 
         verify(notificationService).sendNotification(any(Notification.class));
         // Other steps should be skipped due to exception
-        verify(notificationService, never()).sendEmailAlert(anyString(), anyString(), anyString());
+        verify(notificationService, never()).sendHtmlEmail(anyString(), anyString(), anyString(), anyMap());
     }
 }
 

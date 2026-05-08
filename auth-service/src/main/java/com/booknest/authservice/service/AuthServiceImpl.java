@@ -115,9 +115,10 @@ public class AuthServiceImpl implements AuthService {
             
             // Dispatch welcome email asynchronously (handled simply here)
             try {
+                log.info("Dispatching welcome email to user: {}", savedUser.getEmail());
                 emailService.sendWelcomeEmail(savedUser.getEmail(), savedUser.getFullName());
             } catch (Exception e) {
-                log.warn("Registration welcome email failed for user [{}]: {}", savedUser.getEmail(), e.getMessage());
+                log.error("Registration welcome email failure for [{}]: {}", savedUser.getEmail(), e.getMessage(), e);
             }
         }
 

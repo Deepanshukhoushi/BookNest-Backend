@@ -152,41 +152,49 @@ public class OrderServiceImpl implements OrderService {
             clearCart(userId);
             
             // Trigger Order Placed Event
-            publishOrderEvent(
-                    orders.get(0).getOrderId(),
-                    userId,
-                    "ORDER",
-                    "PLACED",
-                    "Your order with " + cart.getItems().size() + " items has been placed successfully.");
-            
-            if ("ONLINE".equals(paymentMethod) || "WALLET".equals(paymentMethod)) {
+            try {
                 publishOrderEvent(
                         orders.get(0).getOrderId(),
                         userId,
-                        "PAYMENT",
-                        "SUCCESS",
-                        "Payment of " + totalAmount + " confirmed via " + paymentMethod);
-            }
-
-            for (CartItemDTO item : cart.getItems()) {
-                BookDTO book = booksById.get(item.getBookId());
-                int remainingStock = (book.getStock() == null ? 0 : book.getStock()) - item.getQuantity();
-                if (remainingStock <= 5) {
+                        "ORDER",
+                        "PLACED",
+                        "Your order with " + cart.getItems().size() + " items has been placed successfully.");
+                
+                if ("ONLINE".equals(paymentMethod) || "WALLET".equals(paymentMethod)) {
                     publishOrderEvent(
                             orders.get(0).getOrderId(),
                             userId,
-                            "SYSTEM",
-                            "LOW_STOCK",
-                            "Low stock alert: '" + book.getTitle() + "' now has only " + Math.max(remainingStock, 0) + " copies remaining.");
+                            "PAYMENT",
+                            "SUCCESS",
+                            "Payment of " + totalAmount + " confirmed via " + paymentMethod);
                 }
+
+                for (CartItemDTO item : cart.getItems()) {
+                    BookDTO book = booksById.get(item.getBookId());
+                    int remainingStock = (book.getStock() == null ? 0 : book.getStock()) - item.getQuantity();
+                    if (remainingStock <= 5) {
+                        publishOrderEvent(
+                                orders.get(0).getOrderId(),
+                                userId,
+                                "SYSTEM",
+                                "LOW_STOCK",
+                                "Low stock alert: '" + book.getTitle() + "' now has only " + Math.max(remainingStock, 0) + " copies remaining.");
+                    }
+                }
+            } catch (Exception e) {
+                log.warn("Failed to publish order events, but order was placed: {}", e.getMessage());
             }
 
+            log.info("Checkout successful for userId: {}. Orders created: {}", userId, orders.size());
             return orders;
         } catch (RuntimeException ex) {
+            log.error("Checkout failed for userId: {}. Error: {}", userId, ex.getMessage());
             if (stockReduced) {
+                log.info("Compensating stock for userId: {}", userId);
                 restoreStock(reduceRequests);
             }
             if (walletDebited) {
+                log.info("Compensating wallet for userId: {}", userId);
                 refundWallet(userId, totalAmount);
             }
             throw ex;
@@ -378,15 +386,11 @@ public class OrderServiceImpl implements OrderService {
         orderRepository.saveAll(orders);
 
         // 7. Downstream updates: Reduce Stock and Clear Cart
-        try {
-            List<ReduceStockRequest> reduceRequests = orders.stream()
-                .map(o -> ReduceStockRequest.builder().bookId(o.getBookId()).quantity(o.getQuantity()).build())
-                .toList();
-            reduceStockBatch(reduceRequests);
-            clearCart(orders.get(0).getUserId());
-        } catch (Exception e) {
-            log.error("Post-payment processing failed: {}", e.getMessage());
-        }
+        List<ReduceStockRequest> reduceRequests = orders.stream()
+            .map(o -> ReduceStockRequest.builder().bookId(o.getBookId()).quantity(o.getQuantity()).build())
+            .toList();
+        reduceStockBatch(reduceRequests);
+        clearCart(orders.get(0).getUserId());
 
         return orders;
     }

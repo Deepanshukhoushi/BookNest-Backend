@@ -1,6 +1,5 @@
 package com.booknest.authservice.service;
 
-import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Service;
@@ -22,18 +21,14 @@ public class EmailService {
     private final TemplateEngine templateEngine;
 
     // Sends an email containing a one-time password (OTP) for account recovery
+    @org.springframework.scheduling.annotation.Async
     public void sendOtpEmail(String to, String otp) {
         try {
-            SimpleMailMessage message = new SimpleMailMessage();
-            message.setTo(to);
-            message.setSubject("Booknest Library: Access Recovery Code");
-            message.setText("Greetings,\n\n" +
-                    "You have requested a security reset for your Booknest account.\n" +
-                    "Your verification code is: " + otp + "\n\n" +
-                    "This code will expire in 10 minutes. If you did not request this, please secure your account immediately.\n\n" +
-                    "Regards,\n" +
-                    "Booknest Security Team");
-            mailSender.send(message);
+            Context context = new Context();
+            context.setVariable("otp", otp);
+            String htmlContent = templateEngine.process("otp-email", context);
+
+            sendHtmlEmail(to, "Booknest Library: Access Recovery Code", htmlContent);
             log.info("OTP successfully dispatched to {}", to);
         } catch (Exception e) {
             log.error("Critical failure during OTP dispatch to {}: {}", to, e.getMessage(), e);
@@ -42,6 +37,7 @@ public class EmailService {
     }
 
     // Sends a welcome email to a newly registered user using a rich HTML template
+    @org.springframework.scheduling.annotation.Async
     public void sendWelcomeEmail(String to, String name) {
         try {
             Context context = new Context();

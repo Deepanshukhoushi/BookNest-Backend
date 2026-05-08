@@ -4,17 +4,14 @@ import jakarta.mail.Session;
 import jakarta.mail.internet.MimeMessage;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.thymeleaf.TemplateEngine;
 
 import java.util.Properties;
 
-import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
@@ -35,16 +32,14 @@ class EmailServiceTest {
     private EmailService emailService;
 
     @Test
-    void sendOtpEmail_SendsExpectedPlainTextMessage() {
-        ArgumentCaptor<SimpleMailMessage> captor = ArgumentCaptor.forClass(SimpleMailMessage.class);
+    void sendOtpEmail_SendsHtmlEmail() {
+        MimeMessage mimeMessage = new MimeMessage(Session.getInstance(new Properties()));
+        when(templateEngine.process(eq("otp-email"), any())).thenReturn("<html>OTP: 123456</html>");
+        when(mailSender.createMimeMessage()).thenReturn(mimeMessage);
 
         emailService.sendOtpEmail("reader@example.com", "123456");
 
-        verify(mailSender).send(captor.capture());
-        SimpleMailMessage message = captor.getValue();
-        assertThat(message.getTo()).containsExactly("reader@example.com");
-        assertThat(message.getSubject()).isEqualTo("Booknest Library: Access Recovery Code");
-        assertThat(message.getText()).contains("123456");
+        verify(mailSender).send(mimeMessage);
     }
 
     @Test

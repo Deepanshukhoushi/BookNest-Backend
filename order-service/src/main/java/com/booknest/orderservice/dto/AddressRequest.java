@@ -25,6 +25,7 @@ public class AddressRequest {
 
     @NotBlank(message = "Full name is required")
     @Size(min = 2, max = 100, message = "Full name must be between 2 and 100 characters")
+    @Pattern(regexp = "^[a-zA-Z\\s.-]*$", message = "Full name can only contain letters, dots, and hyphens")
     private String fullName;
 
     @NotBlank(message = "Mobile number is required")

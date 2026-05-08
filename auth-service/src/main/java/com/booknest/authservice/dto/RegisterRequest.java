@@ -8,6 +8,7 @@ import lombok.Data;
 @Data
 public class RegisterRequest {
 	@NotBlank(message = "Full name is required")
+	@Pattern(regexp = "^[a-zA-Z\\s.-]*$", message = "Full name can only contain letters, dots, and hyphens")
 	private String fullName;
 	
 	@NotBlank(message = "Email is required")
