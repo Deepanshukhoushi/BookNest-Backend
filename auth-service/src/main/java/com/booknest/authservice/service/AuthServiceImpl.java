@@ -45,7 +45,7 @@ public class AuthServiceImpl implements AuthService {
         }
 
         // Generate 6-digit OTP
-        String otp = String.format("%06d", SECURE_RANDOM.nextInt(999999));
+        String otp = String.format("%06d", SECURE_RANDOM.nextInt(1000000));
 
         // Delete existing tokens for this email
         tokenRepository.deleteByEmail(email);

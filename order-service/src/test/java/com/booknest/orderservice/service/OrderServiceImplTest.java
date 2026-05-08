@@ -42,6 +42,8 @@ public class OrderServiceImplTest {
     @Mock
     private RazorpayService razorpayService;
     @Mock
+    private CouponService couponService;
+    @Mock
     private com.booknest.orderservice.event.OrderEventPublisher eventPublisher;
 
     @InjectMocks
@@ -117,6 +119,20 @@ public class OrderServiceImplTest {
         when(addressRepository.findByAddressIdAndCustomerIdAndIsActiveTrue(1L, userId)).thenReturn(Optional.of(testAddress));
         when(bookClient.getBookById(bookId)).thenReturn(new ApiResponse<>(true, "ok", testBook));
         when(orderRepository.saveAll(anyList())).thenAnswer(i -> i.getArgument(0));
+        when(couponService.validateCoupon("SAVE20", 100.0))
+                .thenReturn(CouponValidateResponse.builder()
+                        .code("SAVE20")
+                        .discountAmount(20.0)
+                        .finalAmount(80.0)
+                        .valid(true)
+                        .build());
+        when(couponService.applyCoupon("SAVE20", 100.0))
+                .thenReturn(CouponValidateResponse.builder()
+                        .code("SAVE20")
+                        .discountAmount(20.0)
+                        .finalAmount(80.0)
+                        .valid(true)
+                        .build());
 
         List<Order> result = orderService.checkout(CheckoutRequest.builder()
                 .userId(userId)
@@ -159,7 +175,7 @@ public class OrderServiceImplTest {
         when(bookClient.getBookById(bookId)).thenReturn(new ApiResponse<>(true, "ok", testBook));
         when(razorpayService.createOrder(anyDouble())).thenReturn("rzp_order_123");
 
-        String result = orderService.initiateRazorpayPayment(userId, null);
+        String result = orderService.initiateRazorpayPayment(userId, null, null);
 
         assertThat(result).isEqualTo("rzp_order_123");
         verify(orderRepository).saveAll(anyList());
@@ -171,7 +187,7 @@ public class OrderServiceImplTest {
         when(razorpayService.verifySignature(any())).thenReturn(true);
         when(orderRepository.findByRazorpayOrderId("rzp_order_123")).thenReturn(Arrays.asList(order));
 
-        PaymentVerifyRequest request = new PaymentVerifyRequest("rzp_order_123", "pay_123", "sig_123", null);
+        PaymentVerifyRequest request = new PaymentVerifyRequest("rzp_order_123", "pay_123", "sig_123", null, null);
         List<Order> result = orderService.verifyRazorpayPayment(request, userId);
 
         assertThat(result.get(0).getOrderStatus()).isEqualTo(OrderStatus.PAID);
@@ -391,7 +407,7 @@ public class OrderServiceImplTest {
         when(razorpayService.verifySignature(any())).thenReturn(true);
         when(orderRepository.findByRazorpayOrderId("rzp_order_123")).thenReturn(Arrays.asList(order));
 
-        PaymentVerifyRequest request = new PaymentVerifyRequest("rzp_order_123", "pay_123", "sig_123", null);
+        PaymentVerifyRequest request = new PaymentVerifyRequest("rzp_order_123", "pay_123", "sig_123", null, null);
         
         assertThatThrownBy(() -> orderService.verifyRazorpayPayment(request, userId))
                 .isInstanceOf(com.booknest.orderservice.exception.InvalidPaymentException.class)
@@ -433,7 +449,7 @@ public class OrderServiceImplTest {
         when(razorpayService.isSimulationMode()).thenReturn(true);
         when(razorpayService.createOrder(anyDouble())).thenReturn("rzp_sim");
 
-        String result = orderService.initiateRazorpayPayment(userId, null);
+        String result = orderService.initiateRazorpayPayment(userId, null, null);
         assertThat(result).isEqualTo("rzp_sim");
     }
 
@@ -462,7 +478,7 @@ public class OrderServiceImplTest {
         when(razorpayService.createOrder(anyDouble())).thenReturn("rzp_sim");
 
         // Base 500, Qty 5 -> 15% discount -> 425.0
-        orderService.initiateRazorpayPayment(userId, null);
+        orderService.initiateRazorpayPayment(userId, null, null);
         verify(razorpayService).createOrder(425.0);
     }
 
@@ -594,6 +610,11 @@ public class OrderServiceImplTest {
         when(addressRepository.findByAddressIdAndCustomerIdAndIsActiveTrue(1L, userId)).thenReturn(Optional.of(testAddress));
         when(bookClient.getBookById(bookId)).thenReturn(new ApiResponse<>(true, "ok", testBook));
         when(orderRepository.saveAll(anyList())).thenAnswer(i -> i.getArgument(0));
+
+        when(couponService.validateCoupon("BOOKNEST10", 100.0))
+                .thenReturn(CouponValidateResponse.builder().code("BOOKNEST10").discountAmount(10.0).finalAmount(90.0).valid(true).build());
+        when(couponService.applyCoupon("BOOKNEST10", 100.0))
+                .thenReturn(CouponValidateResponse.builder().code("BOOKNEST10").discountAmount(10.0).finalAmount(90.0).valid(true).build());
 
         List<Order> result = orderService.checkout(CheckoutRequest.builder()
                 .userId(userId).paymentMethod("COD").addressId(1L).discountCode("BOOKNEST10").build());
@@ -728,7 +749,7 @@ public class OrderServiceImplTest {
         when(razorpayService.verifySignature(any())).thenReturn(false);
 
         com.booknest.orderservice.dto.PaymentVerifyRequest req =
-                new com.booknest.orderservice.dto.PaymentVerifyRequest("rzp_order_1", "pay_1", "bad", null);
+                new com.booknest.orderservice.dto.PaymentVerifyRequest("rzp_order_1", "pay_1", "bad", null, null);
 
         assertThatThrownBy(() -> orderService.verifyRazorpayPayment(req, userId))
                 .isInstanceOf(com.booknest.orderservice.exception.InvalidPaymentException.class)
@@ -743,7 +764,7 @@ public class OrderServiceImplTest {
                 .thenReturn(Collections.emptyList());
 
         com.booknest.orderservice.dto.PaymentVerifyRequest req =
-                new com.booknest.orderservice.dto.PaymentVerifyRequest("rzp_order_empty", "pay_1", "sig", null);
+                new com.booknest.orderservice.dto.PaymentVerifyRequest("rzp_order_empty", "pay_1", "sig", null, null);
 
         assertThatThrownBy(() -> orderService.verifyRazorpayPayment(req, userId))
                 .isInstanceOf(RuntimeException.class)
@@ -761,7 +782,7 @@ public class OrderServiceImplTest {
                 .thenReturn(java.util.Arrays.asList(paidOrder));
 
         com.booknest.orderservice.dto.PaymentVerifyRequest req =
-                new com.booknest.orderservice.dto.PaymentVerifyRequest("rzp_paid", "pay_1", "sig", null);
+                new com.booknest.orderservice.dto.PaymentVerifyRequest("rzp_paid", "pay_1", "sig", null, null);
         List<Order> result = orderService.verifyRazorpayPayment(req, userId);
 
         assertThat(result.get(0).getOrderStatus()).isEqualTo(OrderStatus.PAID);
@@ -780,7 +801,7 @@ public class OrderServiceImplTest {
         when(orderRepository.saveAll(anyList())).thenAnswer(i -> i.getArgument(0));
 
         com.booknest.orderservice.dto.PaymentVerifyRequest req =
-                new com.booknest.orderservice.dto.PaymentVerifyRequest("rzp_sim_1", "pay_1", "sig", 1L);
+                new com.booknest.orderservice.dto.PaymentVerifyRequest("rzp_sim_1", "pay_1", "sig", 1L, null);
         List<Order> result = orderService.verifyRazorpayPayment(req, userId);
 
         assertThat(result.get(0).getOrderStatus()).isEqualTo(OrderStatus.PAID);
@@ -846,7 +867,7 @@ public class OrderServiceImplTest {
                         .items(Collections.emptyList()).build();
         when(cartClient.getCartByUserId(userId)).thenReturn(new ApiResponse<>(true, "ok", emptyCart));
 
-        assertThatThrownBy(() -> orderService.initiateRazorpayPayment(userId, null))
+        assertThatThrownBy(() -> orderService.initiateRazorpayPayment(userId, null, null))
                 .isInstanceOf(com.booknest.orderservice.exception.InvalidPaymentException.class)
                 .hasMessageContaining("empty cart");
     }
@@ -856,7 +877,7 @@ public class OrderServiceImplTest {
         when(cartClient.getCartByUserId(userId)).thenReturn(new ApiResponse<>(true, "ok", testCart));
         when(addressRepository.findByCustomerIdAndIsActiveTrue(userId)).thenReturn(Collections.emptyList());
         // bookClient stub omitted: getLatestAddress() throws before validateStockAndFetchBooks()
-        assertThatThrownBy(() -> orderService.initiateRazorpayPayment(userId, null))
+        assertThatThrownBy(() -> orderService.initiateRazorpayPayment(userId, null, null))
                 .isInstanceOf(RuntimeException.class)
                 .hasMessageContaining("No shipping address found");
     }
@@ -871,7 +892,7 @@ public class OrderServiceImplTest {
         when(razorpayService.createOrder(anyDouble())).thenReturn("rzp_real_order_1");
         when(orderRepository.saveAll(anyList())).thenAnswer(i -> i.getArgument(0));
 
-        String result = orderService.initiateRazorpayPayment(userId, null);
+        String result = orderService.initiateRazorpayPayment(userId, null, null);
 
         assertThat(result).isEqualTo("rzp_real_order_1");
         verify(orderRepository).saveAll(anyList());

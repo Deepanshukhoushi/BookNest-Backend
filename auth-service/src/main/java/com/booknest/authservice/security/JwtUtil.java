@@ -4,6 +4,7 @@ import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
 import io.jsonwebtoken.security.Keys;
+import jakarta.annotation.PostConstruct;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
@@ -21,11 +22,27 @@ import java.util.function.Function;
 @Component
 public class JwtUtil {
 
-    @Value("${auth.jwt.secret:my-very-strong-secret-key-with-32-bytes}")
+    // No fallback — startup fails immediately if this env var is missing
+    @Value("${auth.jwt.secret}")
     private String secret;
 
     @Value("${auth.jwt.expiration:3600000}") // Default 1 hour in ms
     private long expirationTime;
+
+    /**
+     * Validates the JWT secret at startup.
+     * Prevents the application from running with a weak or missing secret,
+     * which would be a critical security vulnerability.
+     */
+    @PostConstruct
+    public void validateSecret() {
+        if (secret == null || secret.trim().length() < 32) {
+            throw new IllegalStateException(
+                "[SECURITY] AUTH_JWT_SECRET must be at least 32 characters. " +
+                "Set a strong secret in your environment or .env file."
+            );
+        }
+    }
 
     /**
      * @deprecated Use {@link #generateToken(String, String, Long)} to embed userId.

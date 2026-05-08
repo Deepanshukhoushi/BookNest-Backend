@@ -52,7 +52,7 @@ spring:
 
 auth:
   jwt:
-    secret: ${AUTH_JWT_SECRET:my-very-strong-secret-key-with-32-bytes}
+    secret: ${AUTH_JWT_SECRET}
     expiration: ${AUTH_JWT_EXPIRATION:3600000}
 
 eureka:

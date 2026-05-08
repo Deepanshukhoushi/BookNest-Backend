@@ -27,15 +27,17 @@ public class PaymentResource {
     private final OrderService orderService;
     private final RazorpayService razorpayService;
 
-    @PostMapping("/initiate/{userId}")
+    @PostMapping("/initiate")
     public ResponseEntity<ApiResponse<String>> initiatePayment(
-            @PathVariable Long userId,
-            @RequestBody(required = false) PaymentInitiationRequest initiationRequest,
+            @RequestBody PaymentInitiationRequest initiationRequest,
             HttpServletRequest request) {
-        enforceUserAccess(userId, request);
-        log.info("REST request to initiate payment for userId: {}", userId);
-        Long addressId = initiationRequest == null ? null : initiationRequest.getAddressId();
-        String razorpayOrderId = orderService.initiateRazorpayPayment(userId, addressId);
+        enforceUserAccess(initiationRequest.getUserId(), request);
+        log.info("REST request to initiate payment for userId: {}", initiationRequest.getUserId());
+        String razorpayOrderId = orderService.initiateRazorpayPayment(
+                initiationRequest.getUserId(),
+                initiationRequest.getAddressId(),
+                initiationRequest.getDiscountCode()
+        );
         return ResponseEntity.ok(new ApiResponse<>(true, "Payment initiated", razorpayOrderId));
     }
 

@@ -26,7 +26,7 @@ public interface OrderService {
     List<Address> getAllAddress();
     List<Address> getAddressByCustomerId(Long customerId);
     
-    String initiateRazorpayPayment(Long userId, Long addressId);
+    String initiateRazorpayPayment(Long userId, Long addressId, String discountCode);
     List<Order> verifyRazorpayPayment(com.booknest.orderservice.dto.PaymentVerifyRequest request, Long authenticatedUserId);
     void handlePaymentWebhook(String payload, String signature);
 }

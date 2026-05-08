@@ -288,7 +288,7 @@ public class OrderResourceTest {
     @Test
     void testVerifyRazorpayPayment_Endpoint() throws Exception {
         com.booknest.orderservice.dto.PaymentVerifyRequest req =
-                new com.booknest.orderservice.dto.PaymentVerifyRequest("rzp_1", "pay_1", "sig_1", 1L);
+                new com.booknest.orderservice.dto.PaymentVerifyRequest("rzp_1", "pay_1", "sig_1", 1L, null);
         when(razorpayService.verifySignature(any())).thenReturn(true);
 
         mockMvc.perform(post("/api/v1/orders/payment/verify")

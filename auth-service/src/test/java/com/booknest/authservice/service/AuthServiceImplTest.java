@@ -28,6 +28,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentCaptor.forClass;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -123,7 +124,9 @@ public class AuthServiceImplTest {
         authService.forgotPassword("test@example.com");
 
         verify(tokenRepository).deleteByEmail("test@example.com");
-        verify(tokenRepository).save(any(PasswordResetToken.class));
+        var captor = forClass(PasswordResetToken.class);
+        verify(tokenRepository).save(captor.capture());
+        assertThat(captor.getValue().getToken()).hasSize(6).matches("\\d{6}");
         verify(emailService).sendOtpEmail(eq("test@example.com"), anyString());
     }
 

@@ -10,5 +10,7 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 @Builder
 public class PaymentInitiationRequest {
+    private Long userId;
     private Long addressId;
+    private String discountCode;
 }

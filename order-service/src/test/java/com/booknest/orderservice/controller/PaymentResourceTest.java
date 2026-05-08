@@ -1,6 +1,7 @@
 package com.booknest.orderservice.controller;
 
 import com.booknest.orderservice.dto.PaymentVerifyRequest;
+import com.booknest.orderservice.dto.PaymentInitiationRequest;
 import com.booknest.orderservice.entity.Order;
 import com.booknest.orderservice.enums.OrderStatus;
 import com.booknest.orderservice.service.OrderService;
@@ -45,11 +46,11 @@ class PaymentResourceTest {
 
     @Test
     void testInitiatePayment_Success() throws Exception {
-        when(orderService.initiateRazorpayPayment(1L, 10L)).thenReturn("rzp_order_abc");
+        when(orderService.initiateRazorpayPayment(1L, 10L, "SAVE20")).thenReturn("rzp_order_abc");
 
-        mockMvc.perform(post("/api/v1/payments/initiate/1")
+        mockMvc.perform(post("/api/v1/payments/initiate")
                 .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"addressId\":10}")
+                .content(objectMapper.writeValueAsString(new PaymentInitiationRequest(1L, 10L, "SAVE20")))
                 .header("X-Auth-UserId", "1")
                 .header("X-Auth-Role", "USER"))
                 .andExpect(status().isOk())
@@ -59,9 +60,11 @@ class PaymentResourceTest {
 
     @Test
     void testInitiatePayment_AdminBypass() throws Exception {
-        when(orderService.initiateRazorpayPayment(42L, null)).thenReturn("rzp_admin_order");
+        when(orderService.initiateRazorpayPayment(42L, null, null)).thenReturn("rzp_admin_order");
 
-        mockMvc.perform(post("/api/v1/payments/initiate/42")
+        mockMvc.perform(post("/api/v1/payments/initiate")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(new PaymentInitiationRequest(42L, null, null)))
                 .header("X-Auth-UserId", "1")
                 .header("X-Auth-Role", "ADMIN"))
                 .andExpect(status().isOk())
@@ -70,7 +73,9 @@ class PaymentResourceTest {
 
     @Test
     void testInitiatePayment_Forbidden() throws Exception {
-        mockMvc.perform(post("/api/v1/payments/initiate/99")
+        mockMvc.perform(post("/api/v1/payments/initiate")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(new PaymentInitiationRequest(99L, null, null)))
                 .header("X-Auth-UserId", "1")
                 .header("X-Auth-Role", "USER"))
                 .andExpect(status().isForbidden());
@@ -91,7 +96,7 @@ class PaymentResourceTest {
         when(orderService.verifyRazorpayPayment(any(PaymentVerifyRequest.class), any()))
                 .thenReturn(List.of(order));
 
-        PaymentVerifyRequest req = new PaymentVerifyRequest("rzp_order_1", "pay_1", "sig_1", 10L);
+        PaymentVerifyRequest req = new PaymentVerifyRequest("rzp_order_1", "pay_1", "sig_1", 10L, "SAVE20");
         mockMvc.perform(post("/api/v1/payments/verify")
                 .header("X-Auth-UserId", "1")
                 .contentType(MediaType.APPLICATION_JSON)
@@ -114,14 +119,18 @@ class PaymentResourceTest {
 
     @Test
     void testInitiatePayment_NoAuthHeaders_ReturnsUnauthorized() throws Exception {
-        mockMvc.perform(post("/api/v1/payments/initiate/1"))
+        mockMvc.perform(post("/api/v1/payments/initiate")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(new PaymentInitiationRequest(1L, null, null))))
                 .andExpect(status().isUnauthorized());
     }
     @Test
     void testInitiatePayment_RolePrefixAdminBypass() throws Exception {
-        when(orderService.initiateRazorpayPayment(77L, null)).thenReturn("rzp_prefixed_admin");
+        when(orderService.initiateRazorpayPayment(77L, null, null)).thenReturn("rzp_prefixed_admin");
 
-        mockMvc.perform(post("/api/v1/payments/initiate/77")
+        mockMvc.perform(post("/api/v1/payments/initiate")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(new PaymentInitiationRequest(77L, null, null)))
                 .header("X-Auth-Role", "ROLE_ADMIN")
                 .header("X-Auth-UserId", "1"))
                 .andExpect(status().isOk())
@@ -130,7 +139,9 @@ class PaymentResourceTest {
 
     @Test
     void testInitiatePayment_InvalidAuthenticatedUserHeader_ReturnsUnauthorized() throws Exception {
-        mockMvc.perform(post("/api/v1/payments/initiate/1")
+        mockMvc.perform(post("/api/v1/payments/initiate")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(new PaymentInitiationRequest(1L, null, null)))
                 .header("X-Auth-Role", "USER")
                 .header("X-Auth-UserId", "abc"))
                 .andExpect(status().isUnauthorized());
@@ -142,7 +153,7 @@ class PaymentResourceTest {
         when(orderService.verifyRazorpayPayment(any(PaymentVerifyRequest.class), eq(12L)))
                 .thenReturn(List.of(order));
 
-        PaymentVerifyRequest req = new PaymentVerifyRequest("rzp_order_2", "pay_2", "sig_2", 12L);
+        PaymentVerifyRequest req = new PaymentVerifyRequest("rzp_order_2", "pay_2", "sig_2", 12L, null);
         mockMvc.perform(post("/api/v1/payments/verify")
                 .requestAttr("authenticatedUserId", 12)
                 .contentType(MediaType.APPLICATION_JSON)

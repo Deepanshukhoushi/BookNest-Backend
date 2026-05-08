@@ -21,6 +21,7 @@ import com.booknest.orderservice.exception.InvalidPaymentException;
 import com.booknest.orderservice.payload.ApiResponse;
 import com.booknest.orderservice.repository.AddressRepository;
 import com.booknest.orderservice.repository.OrderRepository;
+import com.booknest.orderservice.service.CouponService;
 import com.booknest.orderservice.service.OrderService;
 import com.booknest.orderservice.service.RazorpayService;
 import org.json.JSONObject;
@@ -56,12 +57,13 @@ public class OrderServiceImpl implements OrderService {
     private final CartClient cartClient;
     private final WalletClient walletClient;
     private final RazorpayService razorpayService;
+    private final CouponService couponService;
     private final com.booknest.orderservice.event.OrderEventPublisher eventPublisher;
 
     // Initiates an online payment transaction using Razorpay
     @Override
     @Transactional
-    public String initiateRazorpayPayment(Long userId, Long addressId) {
+    public String initiateRazorpayPayment(Long userId, Long addressId, String discountCode) {
         log.info("Initiating Razorpay payment for userId: {}", userId);
         CartDTO cart = fetchCart(userId);
         if (cart.getItems() == null || cart.getItems().isEmpty()) {
@@ -70,7 +72,7 @@ public class OrderServiceImpl implements OrderService {
 
         Address address = resolveCheckoutAddress(userId, addressId);
         Map<Long, BookDTO> booksById = validateStockAndFetchBooks(cart.getItems());
-        double totalAmount = calculateTotalAmount(cart.getItems(), booksById, null);
+        double totalAmount = calculateTotalAmount(cart.getItems(), booksById, discountCode);
 
         try {
             if (razorpayService.isSimulationMode()) {
@@ -82,12 +84,25 @@ public class OrderServiceImpl implements OrderService {
             
             // Create and save orders in PAYMENT_PENDING status
             List<Order> orders = new ArrayList<>();
+            Double discountMultiplier = null;
+            if (discountCode != null && !discountCode.isBlank()) {
+                double subtotal = cart.getItems().stream()
+                        .mapToDouble(item -> calculateLineItemAmount(booksById.get(item.getBookId()), item.getQuantity()))
+                        .sum();
+                double finalAmount = couponService.validateCoupon(discountCode, subtotal).getFinalAmount();
+                discountMultiplier = subtotal <= 0 ? 1.0 : finalAmount / subtotal;
+            }
+
             for (CartItemDTO item : cart.getItems()) {
                 BookDTO book = booksById.get(item.getBookId());
+                double lineAmount = calculateLineItemAmount(book, item.getQuantity());
+                if (discountMultiplier != null) {
+                    lineAmount = roundCurrency(lineAmount * discountMultiplier);
+                }
                 Order order = Order.builder()
                         .userId(userId)
                         .orderDate(LocalDateTime.now())
-                        .amountPaid(calculateLineItemAmount(book, item.getQuantity()))
+                        .amountPaid(lineAmount)
                         .modeOfPayment("ONLINE")
                         .paymentMethod("ONLINE")
                         .orderStatus(OrderStatus.PLACED)
@@ -340,6 +355,7 @@ public class OrderServiceImpl implements OrderService {
             CheckoutRequest checkoutRequest = CheckoutRequest.builder()
                     .userId(authenticatedUserId)
                     .addressId(request.getAddressId())
+                    .discountCode(request.getDiscountCode())
                     .paymentMethod("ONLINE")
                     .paymentDetails(Map.of(
                             "verified", true,
@@ -375,6 +391,10 @@ public class OrderServiceImpl implements OrderService {
         if (orders.get(0).getOrderStatus() == OrderStatus.PAID) {
             log.info("Payment already processed for orderId: {}", request.getOrderId());
             return orders;
+        }
+
+        if (request.getDiscountCode() != null && !request.getDiscountCode().isBlank()) {
+            couponService.applyCoupon(request.getDiscountCode(), totalExpectedAmount);
         }
 
         // 6. Update status and process
@@ -577,17 +597,10 @@ public class OrderServiceImpl implements OrderService {
                 .sum();
         
         if (discountCode != null && !discountCode.isBlank()) {
-            double extraDiscount = resolveCouponDiscount(discountCode);
-            total = total * (1 - extraDiscount);
+            total = couponService.validateCoupon(discountCode, total).getFinalAmount();
         }
         
         return roundCurrency(total);
-    }
-
-    private double resolveCouponDiscount(String code) {
-        if ("SAVE20".equalsIgnoreCase(code)) return 0.20;
-        if ("BOOKNEST10".equalsIgnoreCase(code)) return 0.10;
-        return 0.0;
     }
 
     private double calculateLineItemAmount(BookDTO book, int quantity) {
@@ -700,13 +713,20 @@ public class OrderServiceImpl implements OrderService {
     // Saves multiple order items and their initial status to the database
     private List<Order> saveOrders(Long userId, String paymentMethod, List<CartItemDTO> items, Map<Long, BookDTO> booksById, Address address, String discountCode) {
         List<Order> orders = new ArrayList<>();
-        double extraDiscount = (discountCode != null && !discountCode.isBlank()) ? resolveCouponDiscount(discountCode) : 0.0;
+        Double discountMultiplier = null;
+        if (discountCode != null && !discountCode.isBlank()) {
+            double subtotal = items.stream()
+                    .mapToDouble(item -> calculateLineItemAmount(booksById.get(item.getBookId()), item.getQuantity()))
+                    .sum();
+            double finalAmount = couponService.applyCoupon(discountCode, subtotal).getFinalAmount();
+            discountMultiplier = subtotal <= 0 ? 1.0 : finalAmount / subtotal;
+        }
 
         for (CartItemDTO item : items) {
             BookDTO book = booksById.get(item.getBookId());
             double lineAmount = calculateLineItemAmount(book, item.getQuantity());
-            if (extraDiscount > 0) {
-                lineAmount = roundCurrency(lineAmount * (1 - extraDiscount));
+            if (discountMultiplier != null) {
+                lineAmount = roundCurrency(lineAmount * discountMultiplier);
             }
 
             Order order = Order.builder()
@@ -724,16 +744,15 @@ public class OrderServiceImpl implements OrderService {
             orders.add(order);
         }
 
-        List<Order> savedOrders = orderRepository.saveAll(orders);
-        for (Order savedOrder : savedOrders) {
-            savedOrder.getStatusHistory().add(OrderStatusLog.builder()
-                    .orderId(savedOrder.getOrderId())
-                    .status(savedOrder.getOrderStatus())
+        // Add the initial status log entry before persisting — cascade takes care of the rest
+        for (Order order : orders) {
+            order.getStatusHistory().add(OrderStatusLog.builder()
+                    .status(order.getOrderStatus())
                     .updatedAt(LocalDateTime.now())
                     .message("Order successfully placed")
                     .build());
         }
-        return orderRepository.saveAll(savedOrders);
+        return orderRepository.saveAll(orders);
     }
 
     // Clears the user's shopping cart after a successful order placement

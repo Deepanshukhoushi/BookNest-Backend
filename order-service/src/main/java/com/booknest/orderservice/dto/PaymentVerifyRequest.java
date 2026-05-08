@@ -14,4 +14,5 @@ public class PaymentVerifyRequest {
     private String paymentId;
     private String signature;
     private Long addressId;
+    private String discountCode;
 }
