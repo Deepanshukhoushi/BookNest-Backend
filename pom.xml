@@ -34,9 +34,7 @@
 
     <properties>
         <java.version>17</java.version>
-        <sonar.projectKey>Deepanshukhoushi_BookNest-Backend</sonar.projectKey>
         <sonar.organization>deepanshukhoushi</sonar.organization>
-        <sonar.projectName>Booknest Backend</sonar.projectName>
         <sonar.host.url>https://sonarcloud.io</sonar.host.url>
         
         <!-- Exclude boilerplate and infrastructure to reach 80%+ coverage goal -->
@@ -97,6 +95,11 @@
                 <groupId>org.sonarsource.scanner.maven</groupId>
                 <artifactId>sonar-maven-plugin</artifactId>
                 <version>3.9.1.2184</version>
+                <inherited>false</inherited>
+                <configuration>
+                    <sonar.projectKey>Deepanshukhoushi_BookNest-Backend</sonar.projectKey>
+                    <sonar.projectName>Booknest Backend</sonar.projectName>
+                </configuration>
             </plugin>
             <plugin>
                 <groupId>org.springframework.boot</groupId>
