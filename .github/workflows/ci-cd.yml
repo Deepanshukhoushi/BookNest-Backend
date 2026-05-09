@@ -3,10 +3,10 @@ name: BookNest Backend CI/CD
 on:
   push:
     branches:
-      - service/api-gateway
+      - main
   pull_request:
     branches:
-      - service/api-gateway
+      - main
 
 jobs:
   test-and-analyze:
@@ -49,11 +49,11 @@ jobs:
 
   deploy:
     needs: test-and-analyze
-    if: github.ref == 'refs/heads/service/api-gateway'
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     steps:
       - name: Deploy to EC2
-        if: github.ref == 'refs/heads/service/api-gateway'
+        if: github.ref == 'refs/heads/main'
         uses: appleboy/ssh-action@master
         with:
           host: ${{ secrets.EC2_HOST }}
@@ -69,8 +69,8 @@ jobs:
               git clone https://x-access-token:${{ secrets.GH_PAT }}@github.com/Deepanshukhoushi/BookNest-Backend.git booknest-backend
             fi
             cd booknest-backend
-            git checkout service/api-gateway
-            git pull https://x-access-token:${{ secrets.GH_PAT }}@github.com/Deepanshukhoushi/BookNest-Backend.git service/api-gateway
+            git checkout main
+            git pull https://x-access-token:${{ secrets.GH_PAT }}@github.com/Deepanshukhoushi/BookNest-Backend.git main
 
             # Clone Frontend if not present (needed for some build contexts)
             cd ..

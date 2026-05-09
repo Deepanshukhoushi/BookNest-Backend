@@ -19,6 +19,10 @@ import lombok.extern.slf4j.Slf4j;
 public class EmailService {
     private final JavaMailSender mailSender;
     private final TemplateEngine templateEngine;
+    
+    @org.springframework.beans.factory.annotation.Value("${FRONTEND_URL:http://localhost:4200}")
+    private String frontendUrl;
+
 
     // Sends an email containing a one-time password (OTP) for account recovery
     @org.springframework.scheduling.annotation.Async
@@ -42,6 +46,7 @@ public class EmailService {
         try {
             Context context = new Context();
             context.setVariable("name", name);
+            context.setVariable("frontendUrl", frontendUrl);
             String htmlContent = templateEngine.process("welcome-email", context);
 
             sendHtmlEmail(to, "Welcome to the Booknest Library!", htmlContent);
