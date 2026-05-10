@@ -267,6 +267,7 @@ services:
       - JAVA_TOOL_OPTIONS=-Xms128m -Xmx384m
       - RAZORPAY_KEY_ID=${RAZORPAY_KEY_ID}
       - RAZORPAY_KEY_SECRET=${RAZORPAY_KEY_SECRET}
+      - RABBITMQ_HOST=rabbitmq
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8085/actuator/health"]
       interval: 30s
@@ -279,6 +280,9 @@ services:
         condition: service_healthy
       eureka-server:
         condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+
 
   review-service:
     build:
