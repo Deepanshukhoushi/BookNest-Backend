@@ -136,6 +136,13 @@ public class WalletServiceImpl implements WalletService {
                 .orElseThrow(() -> new RuntimeException("Wallet not found for userId: " + userId));
     }
 
+    @Override
+    @Transactional
+    public Wallet addMoneyToWallet(Long userId, Double amount) {
+        Wallet wallet = getByUserId(userId);
+        return addMoney(wallet.getWalletId(), amount, "SYSTEM_REFUND");
+    }
+
     // Initializes a wallet for a user if one doesn't already exist
     @Override
     @Transactional

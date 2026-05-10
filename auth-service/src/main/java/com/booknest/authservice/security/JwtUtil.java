@@ -29,6 +29,9 @@ public class JwtUtil {
     @Value("${auth.jwt.expiration:3600000}") // Default 1 hour in ms
     private long expirationTime;
 
+    @Value("${auth.jwt.refresh-expiration:604800000}") // Default 7 days in ms
+    private long refreshExpirationTime;
+
     /**
      * Validates the JWT secret at startup.
      * Prevents the application from running with a weak or missing secret,
@@ -73,17 +76,21 @@ public class JwtUtil {
         if (userId != null) {
             claims.put("userId", userId);
         }
-        return createToken(claims, email);
+        return createToken(claims, email, expirationTime);
+    }
+
+    public String generateRefreshToken(String email) {
+        return createToken(new HashMap<>(), email, refreshExpirationTime);
     }
 
     // Internal method to create the JWT with specified claims and subject
-    private String createToken(Map<String, Object> claims, String subject) {
+    private String createToken(Map<String, Object> claims, String subject, long ttl) {
         SecretKey key = Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
         return Jwts.builder()
                 .setClaims(claims)
                 .setSubject(subject)
                 .setIssuedAt(new Date(System.currentTimeMillis()))
-                .setExpiration(new Date(System.currentTimeMillis() + expirationTime))
+                .setExpiration(new Date(System.currentTimeMillis() + ttl))
                 .signWith(key, SignatureAlgorithm.HS256)
                 .compact();
     }

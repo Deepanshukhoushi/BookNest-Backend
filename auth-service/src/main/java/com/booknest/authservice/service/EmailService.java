@@ -25,7 +25,6 @@ public class EmailService {
 
 
     // Sends an email containing a one-time password (OTP) for account recovery
-    @org.springframework.scheduling.annotation.Async
     public void sendOtpEmail(String to, String otp) {
         try {
             Context context = new Context();

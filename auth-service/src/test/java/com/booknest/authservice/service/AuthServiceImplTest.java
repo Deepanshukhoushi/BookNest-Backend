@@ -97,10 +97,12 @@ public class AuthServiceImplTest {
         when(userRepository.findByEmail("test@example.com")).thenReturn(Optional.of(testUser));
         when(passwordEncoder.matches("password", "hashedPass")).thenReturn(true);
         when(jwtUtil.generateToken(anyString(), anyString(), anyLong())).thenReturn("mock-token");
+        when(jwtUtil.generateRefreshToken(anyString())).thenReturn("mock-refresh-token");
 
-        String result = authService.login(request);
+        AuthResponse result = authService.login(request);
 
-        assertThat(result).isEqualTo("mock-token");
+        assertThat(result.getAccessToken()).isEqualTo("mock-token");
+        assertThat(result.getRefreshToken()).isEqualTo("mock-refresh-token");
     }
 
     @Test
@@ -162,10 +164,12 @@ public class AuthServiceImplTest {
             return u;
         });
         when(jwtUtil.generateToken(anyString(), anyString(), anyLong())).thenReturn("oauth-token");
+        when(jwtUtil.generateRefreshToken(anyString())).thenReturn("oauth-refresh-token");
 
-        String token = authService.handleOAuthLogin("oauth@example.com", "OAuth User", AuthProvider.GOOGLE);
+        AuthResponse response = authService.handleOAuthLogin("oauth@example.com", "OAuth User", AuthProvider.GOOGLE);
 
-        assertThat(token).isEqualTo("oauth-token");
+        assertThat(response.getAccessToken()).isEqualTo("oauth-token");
+        assertThat(response.getRefreshToken()).isEqualTo("oauth-refresh-token");
         verify(walletClient).initializeWallet(2L);
     }
 
@@ -341,10 +345,12 @@ public class AuthServiceImplTest {
         when(jwtUtil.extractUserId("legacy-token")).thenReturn(null);
         when(userRepository.findByEmail("test@example.com")).thenReturn(Optional.of(testUser));
         when(jwtUtil.generateToken("test@example.com", "USER", 1L)).thenReturn("refreshed-token");
+        when(jwtUtil.generateRefreshToken("test@example.com")).thenReturn("refreshed-refresh-token");
 
-        String token = authService.refreshToken("legacy-token");
+        AuthResponse response = authService.refreshToken("legacy-token");
 
-        assertThat(token).isEqualTo("refreshed-token");
+        assertThat(response.getAccessToken()).isEqualTo("refreshed-token");
+        assertThat(response.getRefreshToken()).isEqualTo("refreshed-refresh-token");
     }
 
     @Test

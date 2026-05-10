@@ -366,4 +366,38 @@ public class OrderResourceTest {
                 .header("X-Auth-Role", "USER"))
                 .andExpect(status().isForbidden());
     }
+
+    @Test
+    void testChangeStatus_InvalidStatus_ReturnsError() throws Exception {
+        mockMvc.perform(put("/api/v1/orders/status")
+                        .header("X-Auth-Role", "ADMIN")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"orderId\":1, \"status\":\"INVALID_STATUS\"}"))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void testChangeStatus_MissingOrderId_ReturnsError() throws Exception {
+        mockMvc.perform(put("/api/v1/orders/status")
+                        .header("X-Auth-Role", "ADMIN")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"status\":\"SHIPPED\"}"))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void testGetOrderByUserId_MissingUserHeader_ReturnsUnauthorized() throws Exception {
+        mockMvc.perform(get("/api/v1/orders/user/1"))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void testDownloadInvoicePdf_OwnershipMismatch() throws Exception {
+        when(orderService.getOrderById(1L)).thenReturn(Order.builder().userId(2L).build());
+
+        mockMvc.perform(get("/api/v1/orders/1/invoice/pdf")
+                        .header("X-Auth-UserId", "1")
+                        .header("X-Auth-Role", "USER"))
+                .andExpect(status().isForbidden());
+    }
 }

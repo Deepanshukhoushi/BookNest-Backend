@@ -19,4 +19,8 @@ public class InvoiceResponse {
     String billedTo;
     String mobileNumber;
     String shippingAddress;
+    Double taxAmount;
+    Double shippingAmount;
+    Double discountAmount;
+    Double subtotal;
 }

@@ -95,6 +95,10 @@
 			<artifactId>razorpay-java</artifactId>
 			<version>1.4.6</version>
 		</dependency>
+		<dependency>
+			<groupId>org.springframework.cloud</groupId>
+			<artifactId>spring-cloud-starter-stream-rabbit</artifactId>
+		</dependency>
 	</dependencies>
 
 	<dependencyManagement>
@@ -122,6 +126,15 @@
 							<artifactId>lombok</artifactId>
 						</exclude>
 					</excludes>
+				</configuration>
+			</plugin>
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-surefire-plugin</artifactId>
+				<version>3.5.2</version>
+				<configuration>
+					<useManifestOnlyJar>false</useManifestOnlyJar>
+					<argLine>@{argLine} -Xmx512m -XX:MaxMetaspaceSize=256m</argLine>
 				</configuration>
 			</plugin>
 		</plugins>

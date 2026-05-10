@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 
 # Stage 1: Base builder - Resolve all dependencies
-FROM maven:3.8.4-openjdk-17-slim AS builder
+FROM maven:3.9.6-eclipse-temurin-17 AS builder
 WORKDIR /app
 
 # Copy parent POM and config
@@ -22,8 +22,10 @@ COPY wallet-service/pom.xml wallet-service/
 COPY wishlist-service/pom.xml wishlist-service/
 
 # Resolve dependencies for all modules in one go
-# This is done once and cached, preventing parallel download conflicts
-RUN --mount=type=cache,target=/root/.m2 mvn dependency:go-offline -Dhttp.keepAlive=false -Dmaven.wagon.http.pool=false -Dmaven.wagon.http.retryHandler.count=5
+# Using batch mode and allowing connection pooling for better stability
+RUN --mount=type=cache,target=/root/.m2 \
+    mvn dependency:resolve-plugins -B && \
+    mvn dependency:go-offline -B || true
 
 # --- Individual Service Build Stages ---
 

@@ -15,13 +15,14 @@ public class OrderEventPublisher {
 
     private final StreamBridge streamBridge;
 
-    public void publishOrderEvent(Long orderId, Long userId, String type, String status, String message) {
+    public void publishOrderEvent(Long orderId, Long userId, String type, String status, String message, Double amount) {
         OrderEvent event = OrderEvent.builder()
                 .orderId(orderId)
                 .userId(userId)
                 .type(type)
                 .status(status)
                 .message(message)
+                .amount(amount)
                 .timestamp(LocalDateTime.now())
                 .build();
         

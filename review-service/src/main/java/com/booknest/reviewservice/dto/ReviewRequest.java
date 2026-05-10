@@ -33,4 +33,6 @@ public class ReviewRequest {
 
     @NotBlank(message = "Comment cannot be empty")
     private String comment;
+
+    private String reviewerName;
 }

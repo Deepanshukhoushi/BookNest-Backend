@@ -266,9 +266,11 @@ public class PdfInvoiceService {
 
         // Total row
         String[][] rows = {
-            { "Subtotal:",      "INR " + String.format("%.2f", invoice.getAmountPaid()) },
-            { "Tax (Included):", "INR 0.00" },
-            { "Grand Total:",   "INR " + String.format("%.2f", invoice.getAmountPaid()) }
+            { "Subtotal:",       "INR " + String.format("%.2f", invoice.getSubtotal()) },
+            { "Tax:",            "INR " + String.format("%.2f", invoice.getTaxAmount()) },
+            { "Shipping:",       "INR " + String.format("%.2f", invoice.getShippingAmount()) },
+            { "Discount:",       "-INR " + String.format("%.2f", invoice.getDiscountAmount()) },
+            { "Grand Total:",    "INR " + String.format("%.2f", invoice.getAmountPaid()) }
         };
 
         for (int i = 0; i < rows.length; i++) {

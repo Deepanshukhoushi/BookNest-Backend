@@ -17,5 +17,6 @@ public class OrderEvent {
     private String type; // ORDER, PAYMENT, DELIVERY
     private String message;
     private String status;
+    private Double amount;
     private LocalDateTime timestamp;
 }

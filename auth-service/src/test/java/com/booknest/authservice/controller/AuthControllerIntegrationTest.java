@@ -25,6 +25,7 @@ import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.validation.beanvalidation.LocalValidatorFactoryBean;
 
 import com.booknest.authservice.service.AuthService;
+import com.booknest.authservice.dto.AuthResponse;
 import com.booknest.authservice.dto.UserResponse;
 import com.booknest.authservice.enums.Role;
 
@@ -89,7 +90,11 @@ class AuthControllerIntegrationTest {
 
         @Test
         void login_successfulRequest_returns200AndJwtToken() throws Exception {
-                when(authService.login(any())).thenReturn("jwt-token");
+                AuthResponse authResponse = AuthResponse.builder()
+                                .accessToken("jwt-token")
+                                .refreshToken("refresh-token")
+                                .build();
+                when(authService.login(any())).thenReturn(authResponse);
 
                 String payload = """
                                 {
@@ -124,7 +129,11 @@ class AuthControllerIntegrationTest {
 
         @Test
         void refresh_validTokenParam_returns200AndRefreshedToken() throws Exception {
-                when(authService.refreshToken(eq("old-token"))).thenReturn("new-token");
+                AuthResponse authResponse = AuthResponse.builder()
+                                .accessToken("new-token")
+                                .refreshToken("new-refresh-token")
+                                .build();
+                when(authService.refreshToken(eq("old-token"))).thenReturn(authResponse);
 
                 mockMvc.perform(post("/api/v1/auth/refresh").param("token", "old-token"))
                                 .andExpect(status().isOk())
@@ -136,9 +145,9 @@ class AuthControllerIntegrationTest {
         }
 
         @Test
-        void refresh_missingTokenParam_returns400() throws Exception {
+        void refresh_missingTokenParam_returns401() throws Exception {
                 mockMvc.perform(post("/api/v1/auth/refresh"))
-                                .andExpect(status().isBadRequest());
+                                .andExpect(status().isUnauthorized());
         }
 
         @Test

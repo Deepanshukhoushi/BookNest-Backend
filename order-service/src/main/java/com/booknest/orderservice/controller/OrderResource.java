@@ -177,8 +177,31 @@ public class OrderResource {
     @PutMapping("/status")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<ApiResponse<Order>> changeStatus(@RequestBody Map<String, Object> payload) {
-        Long orderId = Long.valueOf(payload.get("orderId").toString());
-        OrderStatus status = OrderStatus.valueOf(payload.get("status").toString());
+        if (payload == null || !payload.containsKey("orderId") || !payload.containsKey("status")) {
+            throw new IllegalArgumentException("orderId and status are required in payload");
+        }
+        
+        Object orderIdRaw = payload.get("orderId");
+        Object statusRaw = payload.get("status");
+        
+        if (orderIdRaw == null || statusRaw == null) {
+            throw new IllegalArgumentException("orderId and status cannot be null");
+        }
+
+        Long orderId;
+        try {
+            orderId = Long.valueOf(orderIdRaw.toString());
+        } catch (NumberFormatException e) {
+            throw new IllegalArgumentException("Invalid orderId format: " + orderIdRaw);
+        }
+
+        OrderStatus status;
+        try {
+            status = OrderStatus.valueOf(statusRaw.toString());
+        } catch (IllegalArgumentException e) {
+            throw new IllegalArgumentException("Invalid order status: " + statusRaw);
+        }
+
         return ResponseEntity.ok(new ApiResponse<>(true, "Order status updated successfully",
                 orderService.changeStatus(orderId, status)));
     }

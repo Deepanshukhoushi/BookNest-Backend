@@ -7,6 +7,10 @@ spring:
     name: api-gateway
   config:
     import: optional:file:.env[.properties],optional:file:../.env[.properties]
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
   cloud:
     gateway:
       forwarded:
@@ -28,6 +32,12 @@ spring:
           uri: lb://AUTH-SERVICE
           predicates:
             - Path=/api/v1/auth/**
+          filters:
+            - name: RequestRateLimiter
+              args:
+                redis-rate-limiter.replenishRate: 5
+                redis-rate-limiter.burstCapacity: 10
+                key-resolver: "#{@ipKeyResolver}"
 
         - id: user-service
           uri: lb://AUTH-SERVICE
@@ -214,7 +224,10 @@ management:
         include: health,info,metrics
   endpoint:
     health:
-      show-details: when_authorized
+      show-details: always
+  health:
+    redis:
+      enabled: false
 
 springdoc:
   api-docs:

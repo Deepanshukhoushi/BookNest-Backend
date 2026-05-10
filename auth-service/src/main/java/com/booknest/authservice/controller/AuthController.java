@@ -42,14 +42,27 @@ public class AuthController {
 
 	// Handles user login and returns a JWT token if authentication succeeds
 	@PostMapping("/login")
-	public ResponseEntity<ApiResponse<String>> login(@Valid @RequestBody LoginRequest request) {
-		return ResponseEntity.ok(new ApiResponse<>(true, "Login successful", authService.login(request)));
+	public ResponseEntity<ApiResponse<String>> login(@Valid @RequestBody LoginRequest request, jakarta.servlet.http.HttpServletResponse response) {
+		com.booknest.authservice.dto.AuthResponse authResponse = authService.login(request);
+		setRefreshTokenCookie(response, authResponse.getRefreshToken());
+		return ResponseEntity.ok(new ApiResponse<>(true, "Login successful", authResponse.getAccessToken()));
 	}
 	
 	// Refreshes an existing JWT token to extend the user's session
 	@PostMapping("/refresh")
-	public ResponseEntity<ApiResponse<String>> refresh(@RequestParam String token){
-		return ResponseEntity.ok(new ApiResponse<>(true, "Token refreshed successfully", authService.refreshToken(token)));
+	public ResponseEntity<ApiResponse<String>> refresh(
+            @org.springframework.web.bind.annotation.CookieValue(value = "refreshToken", required = false) String refreshToken,
+            @RequestParam(required = false) String token,
+            jakarta.servlet.http.HttpServletResponse response) {
+		
+        String tokenToUse = refreshToken != null ? refreshToken : token;
+        if (tokenToUse == null) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Refresh token missing");
+        }
+
+		com.booknest.authservice.dto.AuthResponse authResponse = authService.refreshToken(tokenToUse);
+		setRefreshTokenCookie(response, authResponse.getRefreshToken());
+		return ResponseEntity.ok(new ApiResponse<>(true, "Token refreshed successfully", authResponse.getAccessToken()));
 	}
 
 	@PostMapping("/logout")
@@ -205,5 +218,14 @@ public class AuthController {
 			throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Missing bearer token");
 		}
 		return authorizationHeader.substring(7);
+	}
+
+	private void setRefreshTokenCookie(jakarta.servlet.http.HttpServletResponse response, String refreshToken) {
+		jakarta.servlet.http.Cookie cookie = new jakarta.servlet.http.Cookie("refreshToken", refreshToken);
+		cookie.setHttpOnly(true);
+		cookie.setSecure(false); // Should be true in production with HTTPS
+		cookie.setPath("/");
+		cookie.setMaxAge(7 * 24 * 60 * 60); // 7 days
+		response.addCookie(cookie);
 	}
 }

@@ -127,7 +127,7 @@ public class AuthServiceImpl implements AuthService {
 
     // Authenticates user credentials and returns a JWT token if successful
     @Override
-    public String login(LoginRequest request) {
+    public com.booknest.authservice.dto.AuthResponse login(LoginRequest request) {
 
         User user = userRepository.findByEmail(request.getEmail())
                 .orElseThrow(() -> new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.UNAUTHORIZED, "User not found"));
@@ -141,7 +141,13 @@ public class AuthServiceImpl implements AuthService {
         }
 
         Role finalRole = user.getRole() == null ? Role.USER : user.getRole();
-        return jwtUtil.generateToken(user.getEmail(), finalRole.name(), user.getUserId());
+        String accessToken = jwtUtil.generateToken(user.getEmail(), finalRole.name(), user.getUserId());
+        String refreshToken = jwtUtil.generateRefreshToken(user.getEmail());
+        
+        return com.booknest.authservice.dto.AuthResponse.builder()
+                .accessToken(accessToken)
+                .refreshToken(refreshToken)
+                .build();
     }
 
     // Handles user logout (can be extended for token blacklisting)
@@ -167,7 +173,7 @@ public class AuthServiceImpl implements AuthService {
 
     // Generates a fresh JWT token based on the information in an existing one
     @Override
-    public String refreshToken(String token) {
+    public com.booknest.authservice.dto.AuthResponse refreshToken(String token) {
         if (!validateToken(token)) {
             throw new IllegalArgumentException("Token is invalid, expired, or revoked");
         }
@@ -178,7 +184,14 @@ public class AuthServiceImpl implements AuthService {
         if (userId == null) {
             userId = userRepository.findByEmail(email).map(u -> u.getUserId()).orElse(null);
         }
-        return jwtUtil.generateToken(email, role, userId);
+        
+        String accessToken = jwtUtil.generateToken(email, role, userId);
+        String refreshToken = jwtUtil.generateRefreshToken(email);
+        
+        return com.booknest.authservice.dto.AuthResponse.builder()
+                .accessToken(accessToken)
+                .refreshToken(refreshToken)
+                .build();
     }
 
     // Updates the password for an already authenticated user
@@ -201,7 +214,7 @@ public class AuthServiceImpl implements AuthService {
     // Manages login and registration for OAuth-based authentication (e.g., Google, GitHub)
     @Override
     @org.springframework.transaction.annotation.Transactional
-    public String handleOAuthLogin(String email, String fullName, com.booknest.authservice.enums.AuthProvider provider) {
+    public com.booknest.authservice.dto.AuthResponse handleOAuthLogin(String email, String fullName, com.booknest.authservice.enums.AuthProvider provider) {
         User user = userRepository.findByEmail(email).orElseGet(() -> {
             User newUser = User.builder()
                     .email(email)
@@ -236,7 +249,13 @@ public class AuthServiceImpl implements AuthService {
         }
 
         Role finalRole = user.getRole() == null ? Role.USER : user.getRole();
-        return jwtUtil.generateToken(user.getEmail(), finalRole.name(), user.getUserId());
+        String accessToken = jwtUtil.generateToken(user.getEmail(), finalRole.name(), user.getUserId());
+        String refreshToken = jwtUtil.generateRefreshToken(user.getEmail());
+        
+        return com.booknest.authservice.dto.AuthResponse.builder()
+                .accessToken(accessToken)
+                .refreshToken(refreshToken)
+                .build();
     }
 
     // Retrieves the profile information for a specific user

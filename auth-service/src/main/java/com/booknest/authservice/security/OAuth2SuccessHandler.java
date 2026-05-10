@@ -56,10 +56,18 @@ public class OAuth2SuccessHandler extends SimpleUrlAuthenticationSuccessHandler 
                 throw new IllegalArgumentException("Email not provided by " + provider);
             }
 
-            String jwtToken = authService.handleOAuthLogin(email, name, provider);
+            com.booknest.authservice.dto.AuthResponse authResponse = authService.handleOAuthLogin(email, name, provider);
+            
+            // Set refresh token cookie
+            jakarta.servlet.http.Cookie cookie = new jakarta.servlet.http.Cookie("refreshToken", authResponse.getRefreshToken());
+            cookie.setHttpOnly(true);
+            cookie.setSecure(false);
+            cookie.setPath("/");
+            cookie.setMaxAge(7 * 24 * 60 * 60);
+            response.addCookie(cookie);
             
             String targetUrl = UriComponentsBuilder.fromUriString(redirectUrl)
-                    .queryParam("token", jwtToken)
+                    .queryParam("token", authResponse.getAccessToken())
                     .build().toUriString();
 
             getRedirectStrategy().sendRedirect(request, response, targetUrl);

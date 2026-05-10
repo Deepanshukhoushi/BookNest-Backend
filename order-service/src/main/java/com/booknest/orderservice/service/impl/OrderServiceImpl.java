@@ -58,6 +58,11 @@ public class OrderServiceImpl implements OrderService {
     private final WalletClient walletClient;
     private final RazorpayService razorpayService;
     private final CouponService couponService;
+
+    // Synchronized with frontend environment.ts
+    private static final double TAX_RATE = 0.08;
+    private static final double SHIPPING_THRESHOLD = 250.0;
+    private static final double BASE_SHIPPING = 12.0;
     private final com.booknest.orderservice.event.OrderEventPublisher eventPublisher;
 
     // Initiates an online payment transaction using Razorpay
@@ -84,25 +89,32 @@ public class OrderServiceImpl implements OrderService {
             
             // Create and save orders in PAYMENT_PENDING status
             List<Order> orders = new ArrayList<>();
-            Double discountMultiplier = null;
+            double subtotal = cart.getItems().stream()
+                    .mapToDouble(item -> calculateLineItemAmount(booksById.get(item.getBookId()), item.getQuantity()))
+                    .sum();
+            
+            double globalDiscount = 0.0;
             if (discountCode != null && !discountCode.isBlank()) {
-                double subtotal = cart.getItems().stream()
-                        .mapToDouble(item -> calculateLineItemAmount(booksById.get(item.getBookId()), item.getQuantity()))
-                        .sum();
-                double finalAmount = couponService.validateCoupon(discountCode, subtotal).getFinalAmount();
-                discountMultiplier = subtotal <= 0 ? 1.0 : finalAmount / subtotal;
+                globalDiscount = subtotal - couponService.validateCoupon(discountCode, subtotal).getFinalAmount();
             }
+            double globalTax = (subtotal - globalDiscount) * TAX_RATE;
+            double globalShipping = subtotal > SHIPPING_THRESHOLD ? 0.0 : BASE_SHIPPING;
+            
+            double totalWithExtras = roundCurrency(subtotal + globalTax + globalShipping - globalDiscount);
+            double adjustmentRatio = subtotal <= 0 ? 1.0 : totalWithExtras / subtotal;
 
             for (CartItemDTO item : cart.getItems()) {
                 BookDTO book = booksById.get(item.getBookId());
-                double lineAmount = calculateLineItemAmount(book, item.getQuantity());
-                if (discountMultiplier != null) {
-                    lineAmount = roundCurrency(lineAmount * discountMultiplier);
-                }
+                double itemSubtotal = calculateLineItemAmount(book, item.getQuantity());
+                double itemRatio = subtotal <= 0 ? 0 : itemSubtotal / subtotal;
+                
                 Order order = Order.builder()
                         .userId(userId)
                         .orderDate(LocalDateTime.now())
-                        .amountPaid(lineAmount)
+                        .amountPaid(roundCurrency(itemSubtotal * adjustmentRatio))
+                        .taxAmount(roundCurrency(globalTax * itemRatio))
+                        .shippingAmount(roundCurrency(globalShipping * itemRatio))
+                        .discountAmount(roundCurrency(globalDiscount * itemRatio))
                         .modeOfPayment("ONLINE")
                         .paymentMethod("ONLINE")
                         .orderStatus(OrderStatus.PLACED)
@@ -174,7 +186,8 @@ public class OrderServiceImpl implements OrderService {
                         userId,
                         "ORDER",
                         "PLACED",
-                        "Your order with " + cart.getItems().size() + " items has been placed successfully.");
+                        "Your order with " + cart.getItems().size() + " items has been placed successfully.",
+                        null);
                 
                 if ("ONLINE".equals(paymentMethod) || "WALLET".equals(paymentMethod)) {
                     publishOrderEvent(
@@ -182,7 +195,8 @@ public class OrderServiceImpl implements OrderService {
                             userId,
                             "PAYMENT",
                             "SUCCESS",
-                            "Payment of " + totalAmount + " confirmed via " + paymentMethod);
+                            "Payment of " + totalAmount + " confirmed via " + paymentMethod,
+                            totalAmount);
                 }
 
                 for (CartItemDTO item : cart.getItems()) {
@@ -194,7 +208,8 @@ public class OrderServiceImpl implements OrderService {
                                 userId,
                                 "SYSTEM",
                                 "LOW_STOCK",
-                                "Low stock alert: '" + book.getTitle() + "' now has only " + Math.max(remainingStock, 0) + " copies remaining.");
+                                "Low stock alert: '" + book.getTitle() + "' now has only " + Math.max(remainingStock, 0) + " copies remaining.",
+                                null);
                     }
                 }
             } catch (Exception e) {
@@ -211,7 +226,7 @@ public class OrderServiceImpl implements OrderService {
             }
             if (walletDebited) {
                 log.info("Compensating wallet for userId: {}", userId);
-                refundWallet(userId, totalAmount);
+                refundWallet(0L, userId, totalAmount);
             }
             throw ex;
         }
@@ -222,19 +237,18 @@ public class OrderServiceImpl implements OrderService {
     @Transactional
     public Order changeStatus(Long orderId, OrderStatus status) {
         Order order = orderRepository.findById(orderId)
-                .orElseThrow(() -> new RuntimeException("Order not found"));
+                .orElseThrow(() -> new java.util.NoSuchElementException("Order not found"));
         
         validateStatusTransition(order.getOrderStatus(), status);
         order.setOrderStatus(status);
         
-        // Add to history
-        OrderStatusLog log = OrderStatusLog.builder()
-                .orderId(orderId)
+        OrderStatusLog statusLog = OrderStatusLog.builder()
+                .order(order)
                 .status(status)
                 .updatedAt(LocalDateTime.now())
                 .message("Status updated to " + status)
                 .build();
-        order.getStatusHistory().add(log);
+        order.getStatusHistory().add(statusLog);
 
         Order savedOrder = orderRepository.save(order);
         
@@ -244,7 +258,8 @@ public class OrderServiceImpl implements OrderService {
                 order.getUserId(),
                 "DELIVERY",
                 status.toString(),
-                "Your order status for '" + order.getBookName() + "' has been updated to: " + status);
+                "Your order status for '" + order.getBookName() + "' has been updated to: " + status,
+                null);
         
         return savedOrder;
     }
@@ -275,7 +290,7 @@ public class OrderServiceImpl implements OrderService {
         boolean shouldRefund = order.getOrderStatus() == OrderStatus.PAID || "WALLET".equalsIgnoreCase(order.getPaymentMethod());
         
         if (shouldRefund) {
-            refundWallet(order.getUserId(), order.getAmountPaid());
+            refundWallet(order.getOrderId(), order.getUserId(), order.getAmountPaid());
         }
 
         restoreStock(List.of(ReduceStockRequest.builder()
@@ -285,7 +300,7 @@ public class OrderServiceImpl implements OrderService {
 
         order.setOrderStatus(OrderStatus.CANCELLED);
         order.getStatusHistory().add(OrderStatusLog.builder()
-                .orderId(order.getOrderId())
+                .order(order)
                 .status(OrderStatus.CANCELLED)
                 .updatedAt(LocalDateTime.now())
                 .message("Order cancelled successfully")
@@ -297,7 +312,8 @@ public class OrderServiceImpl implements OrderService {
                 savedOrder.getUserId(),
                 "ORDER",
                 "CANCELLED",
-                "Your order for '" + savedOrder.getBookName() + "' has been cancelled.");
+                "Your order for '" + savedOrder.getBookName() + "' has been cancelled.",
+                null);
         return savedOrder;
     }
 
@@ -326,6 +342,10 @@ public class OrderServiceImpl implements OrderService {
                 .bookName(order.getBookName())
                 .quantity(order.getQuantity())
                 .amountPaid(order.getAmountPaid())
+                .taxAmount(order.getTaxAmount() != null ? order.getTaxAmount() : 0.0)
+                .shippingAmount(order.getShippingAmount() != null ? order.getShippingAmount() : 0.0)
+                .discountAmount(order.getDiscountAmount() != null ? order.getDiscountAmount() : 0.0)
+                .subtotal(order.getAmountPaid() - (order.getTaxAmount() != null ? order.getTaxAmount() : 0.0) - (order.getShippingAmount() != null ? order.getShippingAmount() : 0.0) + (order.getDiscountAmount() != null ? order.getDiscountAmount() : 0.0))
                 .paymentMethod(resolvePaymentMethod(order))
                 .orderStatus(order.getOrderStatus().name())
                 .orderDate(order.getOrderDate().toString())
@@ -429,7 +449,19 @@ public class OrderServiceImpl implements OrderService {
         try {
             JSONObject event = new JSONObject(payload);
             String eventType = event.getString("event");
-            JSONObject paymentEntity = event.getJSONObject("payload")
+            
+            if (!eventType.startsWith("payment.") && !eventType.startsWith("order.")) {
+                log.info("Ignoring non-payment event: {}", eventType);
+                return;
+            }
+
+            JSONObject payloadObj = event.getJSONObject("payload");
+            if (!payloadObj.has("payment")) {
+                log.warn("Webhook: Missing payment data in payload for event {}", eventType);
+                return;
+            }
+
+            JSONObject paymentEntity = payloadObj
                     .getJSONObject("payment")
                     .getJSONObject("entity");
             
@@ -590,17 +622,22 @@ public class OrderServiceImpl implements OrderService {
 
     // Calculates the total cost of all items in the cart
     private double calculateTotalAmount(List<CartItemDTO> items, Map<Long, BookDTO> booksById, String discountCode) {
-        double total = items.stream()
+        double subtotal = items.stream()
                 .mapToDouble(item -> {
                     BookDTO book = booksById.get(item.getBookId());
                     return calculateLineItemAmount(book, item.getQuantity());
                 })
                 .sum();
         
+        double discount = 0.0;
         if (discountCode != null && !discountCode.isBlank()) {
-            total = couponService.validateCoupon(discountCode, total).getFinalAmount();
+            discount = subtotal - couponService.validateCoupon(discountCode, subtotal).getFinalAmount();
         }
         
+        double tax = (subtotal - discount) * TAX_RATE;
+        double shipping = subtotal > SHIPPING_THRESHOLD ? 0.0 : BASE_SHIPPING;
+        
+        double total = subtotal + tax + shipping - discount;
         return roundCurrency(total);
     }
 
@@ -655,17 +692,15 @@ public class OrderServiceImpl implements OrderService {
     }
 
     // Refunds the user's wallet if an order fails after payment
-    private void refundWallet(Long userId, double amount) {
-        try {
-            WalletDTO wallet = getWalletByUserId(userId);
-            walletClient.addMoney(WalletRequest.builder()
-                    .walletId(wallet.getWalletId())
-                    .amount(amount)
-                    .build());
-            log.info("Wallet compensation applied for userId={}, amount={}", userId, amount);
-        } catch (Exception ex) {
-            log.error("Wallet compensation failed for userId={}. Manual intervention may be required. {}", userId, ex.getMessage());
-        }
+    private void refundWallet(Long orderId, Long userId, double amount) {
+        log.info("Requesting wallet refund for orderId={}, userId={}, amount={}", orderId, userId, amount);
+        publishOrderEvent(
+                orderId,
+                userId,
+                "PAYMENT",
+                "REFUND_REQUESTED",
+                "Refund of ₹" + amount + " requested for order #" + orderId,
+                amount);
     }
 
     // Verifies online payment details provided in the request
@@ -714,26 +749,32 @@ public class OrderServiceImpl implements OrderService {
     // Saves multiple order items and their initial status to the database
     private List<Order> saveOrders(Long userId, String paymentMethod, List<CartItemDTO> items, Map<Long, BookDTO> booksById, Address address, String discountCode) {
         List<Order> orders = new ArrayList<>();
-        Double discountMultiplier = null;
+        double subtotal = items.stream()
+                .mapToDouble(item -> calculateLineItemAmount(booksById.get(item.getBookId()), item.getQuantity()))
+                .sum();
+        
+        double globalDiscount = 0.0;
         if (discountCode != null && !discountCode.isBlank()) {
-            double subtotal = items.stream()
-                    .mapToDouble(item -> calculateLineItemAmount(booksById.get(item.getBookId()), item.getQuantity()))
-                    .sum();
-            double finalAmount = couponService.applyCoupon(discountCode, subtotal).getFinalAmount();
-            discountMultiplier = subtotal <= 0 ? 1.0 : finalAmount / subtotal;
+            globalDiscount = subtotal - couponService.applyCoupon(discountCode, subtotal).getFinalAmount();
         }
+        double globalTax = (subtotal - globalDiscount) * TAX_RATE;
+        double globalShipping = subtotal > SHIPPING_THRESHOLD ? 0.0 : BASE_SHIPPING;
+
+        double totalWithExtras = roundCurrency(subtotal + globalTax + globalShipping - globalDiscount);
+        double adjustmentRatio = subtotal <= 0 ? 1.0 : totalWithExtras / subtotal;
 
         for (CartItemDTO item : items) {
             BookDTO book = booksById.get(item.getBookId());
-            double lineAmount = calculateLineItemAmount(book, item.getQuantity());
-            if (discountMultiplier != null) {
-                lineAmount = roundCurrency(lineAmount * discountMultiplier);
-            }
+            double itemSubtotal = calculateLineItemAmount(book, item.getQuantity());
+            double itemRatio = subtotal <= 0 ? 0 : itemSubtotal / subtotal;
 
             Order order = Order.builder()
                     .userId(userId)
                     .orderDate(LocalDateTime.now())
-                    .amountPaid(lineAmount)
+                    .amountPaid(roundCurrency(itemSubtotal * adjustmentRatio))
+                    .taxAmount(roundCurrency(globalTax * itemRatio))
+                    .shippingAmount(roundCurrency(globalShipping * itemRatio))
+                    .discountAmount(roundCurrency(globalDiscount * itemRatio))
                     .modeOfPayment(paymentMethod)
                     .paymentMethod(paymentMethod)
                     .orderStatus("COD".equals(paymentMethod) ? OrderStatus.PLACED : OrderStatus.PAID)
@@ -748,6 +789,7 @@ public class OrderServiceImpl implements OrderService {
         // Add the initial status log entry before persisting — cascade takes care of the rest
         for (Order order : orders) {
             order.getStatusHistory().add(OrderStatusLog.builder()
+                    .order(order)
                     .status(order.getOrderStatus())
                     .updatedAt(LocalDateTime.now())
                     .message("Order successfully placed")
@@ -790,11 +832,11 @@ public class OrderServiceImpl implements OrderService {
                 .orElseThrow(() -> new InvalidPaymentException("Selected address is invalid or no longer available"));
     }
 
-    private void publishOrderEvent(Long orderId, Long userId, String type, String status, String message) {
+    private void publishOrderEvent(Long orderId, Long userId, String type, String status, String message, Double amount) {
         if (eventPublisher == null) {
             return;
         }
-        eventPublisher.publishOrderEvent(orderId, userId, type, status, message);
+        eventPublisher.publishOrderEvent(orderId, userId, type, status, message, amount);
     }
 
     // Fetches the user's wallet information by their ID
@@ -823,6 +865,7 @@ public class OrderServiceImpl implements OrderService {
         }
 
         boolean isValid = switch (current) {
+            case PAYMENT_PENDING -> next == OrderStatus.PLACED || next == OrderStatus.CONFIRMED || next == OrderStatus.PAID || next == OrderStatus.CANCELLED || next == OrderStatus.FAILED;
             case PLACED -> next == OrderStatus.CONFIRMED || next == OrderStatus.PAID || next == OrderStatus.CANCELLED;
             case CONFIRMED -> next == OrderStatus.PAID || next == OrderStatus.SHIPPED || next == OrderStatus.CANCELLED;
             case PAID -> next == OrderStatus.SHIPPED || next == OrderStatus.CANCELLED;

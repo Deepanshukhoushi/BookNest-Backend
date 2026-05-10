@@ -8,12 +8,12 @@ import java.util.List;
 
 public interface AuthService {
 	String register(RegisterRequest request);
-	String login(LoginRequest request);
+	com.booknest.authservice.dto.AuthResponse login(LoginRequest request);
 	void logout(String token);
 	boolean validateToken(String token);
-	String refreshToken(String token);
+	com.booknest.authservice.dto.AuthResponse refreshToken(String token);
 	String changePassword(String email, com.booknest.authservice.dto.ChangePasswordRequest request);
-	String handleOAuthLogin(String email, String fullName, com.booknest.authservice.enums.AuthProvider provider);
+	com.booknest.authservice.dto.AuthResponse handleOAuthLogin(String email, String fullName, com.booknest.authservice.enums.AuthProvider provider);
 	UserResponse getUserProfile(Long userId);
     String uploadProfileImage(Long userId, MultipartFile file);
 	List<UserResponse> getAllUsers();

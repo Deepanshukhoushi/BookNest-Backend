@@ -1,4 +1,4 @@
-package com.booknest.notificationservice.dto;
+package com.booknest.walletservice.dto;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;

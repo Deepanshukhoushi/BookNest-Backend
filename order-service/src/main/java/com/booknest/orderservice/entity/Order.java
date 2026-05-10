@@ -71,8 +71,16 @@ public class Order {
     @Column(name = "rzp_signature")
     private String razorpaySignature;
 
-    @OneToMany(cascade = CascadeType.ALL, fetch = FetchType.EAGER)
-    @JoinColumn(name = "orderId")
+    @Column(name = "tax_amount")
+    private Double taxAmount;
+
+    @Column(name = "shipping_amount")
+    private Double shippingAmount;
+
+    @Column(name = "discount_amount")
+    private Double discountAmount;
+
+    @OneToMany(mappedBy = "order", cascade = CascadeType.ALL, fetch = FetchType.EAGER)
     @Builder.Default
     private java.util.List<OrderStatusLog> statusHistory = new java.util.ArrayList<>();
 }

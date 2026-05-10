@@ -19,6 +19,25 @@ spring:
     properties:
       hibernate:
         dialect: org.hibernate.dialect.MySQLDialect
+  rabbitmq:
+    host: ${RABBITMQ_HOST:localhost}
+    port: ${RABBITMQ_PORT:5672}
+    username: ${RABBITMQ_USERNAME:guest}
+    password: ${RABBITMQ_PASSWORD:guest}
+  cloud:
+    function:
+      definition: refundConsumer
+    stream:
+      bindings:
+        refundConsumer-in-0:
+          destination: order-out-0
+          group: wallet-refund-group
+      rabbit:
+        bindings:
+          refundConsumer-in-0:
+            consumer:
+              auto-bind-dlq: true
+              republish-to-dlq: true
 
 eureka:
   client:

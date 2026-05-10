@@ -21,8 +21,10 @@ public class OrderStatusLog {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "orderId", insertable = false, updatable = false)
-    private Long orderId;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "orderId", nullable = false)
+    @com.fasterxml.jackson.annotation.JsonIgnore
+    private Order order;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)

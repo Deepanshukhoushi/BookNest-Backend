@@ -55,6 +55,7 @@ public class ReviewResource {
                 .userId(reviewRequest.getUserId())
                 .rating(reviewRequest.getRating())
                 .comment(reviewRequest.getComment())
+                .reviewerName(reviewRequest.getReviewerName())
                 .build();
         return ResponseEntity.ok(reviewService.addReview(review));
     }
@@ -90,6 +91,7 @@ public class ReviewResource {
                 .userId(reviewRequest.getUserId())
                 .rating(reviewRequest.getRating())
                 .comment(reviewRequest.getComment())
+                .reviewerName(reviewRequest.getReviewerName())
                 .build();
         return ResponseEntity.ok(reviewService.updateReview(reviewId, review));
     }

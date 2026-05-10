@@ -27,6 +27,9 @@ public class NotificationServiceImpl implements NotificationService {
     private final JavaMailSender mailSender;
     private final TemplateEngine templateEngine;
 
+    @org.springframework.beans.factory.annotation.Value("${FRONTEND_URL:http://localhost:4200}")
+    private String frontendUrl;
+
     @Override
     @Transactional
     public Notification sendNotification(Notification notification) {
@@ -100,6 +103,7 @@ public class NotificationServiceImpl implements NotificationService {
         try {
             Context context = new Context();
             context.setVariables(variables);
+            context.setVariable("frontendUrl", frontendUrl);
             String htmlContent = templateEngine.process(templateName, context);
 
             MimeMessage mimeMessage = mailSender.createMimeMessage();

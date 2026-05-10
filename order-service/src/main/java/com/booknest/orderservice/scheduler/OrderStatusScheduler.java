@@ -6,6 +6,8 @@ import com.booknest.orderservice.repository.OrderRepository;
 import com.booknest.orderservice.service.OrderService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.scheduling.annotation.Scheduled;
+import org.springframework.stereotype.Component;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -16,7 +18,7 @@ import java.util.List;
  * Periodically advances orders from 'Placed' through to 'Delivered' for
  * demonstration purposes.
  */
-// @Component
+@Component
 @RequiredArgsConstructor
 @Slf4j
 public class OrderStatusScheduler {
@@ -28,34 +30,34 @@ public class OrderStatusScheduler {
      * Automatically progresses orders through the lifecycle every 60 seconds.
      * PLACED -> CONFIRMED -> SHIPPED -> OUT_FOR_DELIVERY -> DELIVERED
      */
-    // Periodically triggers the status progression for all eligible orders
-    // @Scheduled(fixedDelay = 60000)
+    @Scheduled(fixedDelay = 60000)
     public void autoProgressOrders() {
         log.info("Starting automated order status progression...");
+        // Use a 2-minute cutoff to give users time to see initial states
+        LocalDateTime cutoff = LocalDateTime.now().minusMinutes(2);
 
         // 1. CONFIRM placed orders
-        progressOrders(OrderStatus.PLACED, OrderStatus.CONFIRMED);
+        progressOrders(OrderStatus.PLACED, OrderStatus.CONFIRMED, cutoff);
 
         // 2. SHIP confirmed/paid orders
-        progressOrders(OrderStatus.CONFIRMED, OrderStatus.SHIPPED);
-        progressOrders(OrderStatus.PAID, OrderStatus.SHIPPED);
+        progressOrders(OrderStatus.CONFIRMED, OrderStatus.SHIPPED, cutoff);
+        progressOrders(OrderStatus.PAID, OrderStatus.SHIPPED, cutoff);
 
         // 3. OUT FOR DELIVERY
-        progressOrders(OrderStatus.SHIPPED, OrderStatus.OUT_FOR_DELIVERY);
+        progressOrders(OrderStatus.SHIPPED, OrderStatus.OUT_FOR_DELIVERY, cutoff);
 
         // 4. DELIVER
-        progressOrders(OrderStatus.OUT_FOR_DELIVERY, OrderStatus.DELIVERED);
+        progressOrders(OrderStatus.OUT_FOR_DELIVERY, OrderStatus.DELIVERED, cutoff);
 
         log.info("Automated progression completed.");
     }
 
-    // Identifies orders in a specific state and migrates them to the next logical
-    // state
-    private void progressOrders(OrderStatus current, OrderStatus next) {
-        List<Order> orders = orderRepository.findAll().stream()
-                .filter(o -> o.getOrderStatus() == current)
-                .filter(o -> o.getOrderDate().isBefore(LocalDateTime.now().minusMinutes(1)))
-                .toList();
+    /**
+     * Identifies orders in a specific state and migrates them to the next logical state.
+     * Uses optimized repository queries instead of fetching all orders.
+     */
+    private void progressOrders(OrderStatus current, OrderStatus next, LocalDateTime cutoff) {
+        List<Order> orders = orderRepository.findByOrderStatusAndOrderDateBefore(current, cutoff);
 
         for (Order order : orders) {
             try {

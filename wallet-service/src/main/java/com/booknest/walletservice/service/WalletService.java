@@ -17,6 +17,7 @@ public interface WalletService {
     List<Statement> getAllStatements();
     void deleteById(Long walletId);
     Wallet getByUserId(Long userId);
+    Wallet addMoneyToWallet(Long userId, Double amount);
 
     Wallet initializeWallet(Long userId);
 

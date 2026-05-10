@@ -141,8 +141,8 @@ public class OrderServiceImplTest {
                 .discountCode("SAVE20")
                 .build());
 
-        // Base price 100, 20% discount = 80
-        assertThat(result.get(0).getAmountPaid()).isEqualTo(80.0);
+        // Base price 100, 20% discount = 80, 8% tax = 6.4, shipping = 12 -> 80+6.4+12 = 98.4
+        assertThat(result.get(0).getAmountPaid()).isEqualTo(98.4);
     }
 
     @Test
@@ -158,13 +158,13 @@ public class OrderServiceImplTest {
                 .build();
 
         when(orderRepository.findById(1L)).thenReturn(Optional.of(order));
-        when(walletClient.getWalletByUserId(userId)).thenReturn(new ApiResponse<>(true, "ok", WalletDTO.builder().walletId(1L).build()));
         when(orderRepository.save(any(Order.class))).thenAnswer(i -> i.getArgument(0));
 
         Order result = orderService.cancelOrder(1L);
 
         assertThat(result.getOrderStatus()).isEqualTo(OrderStatus.CANCELLED);
-        verify(walletClient).addMoney(any(WalletRequest.class));
+        verify(eventPublisher).publishOrderEvent(anyLong(), anyLong(), eq("PAYMENT"), eq("REFUND_REQUESTED"), anyString(), anyDouble());
+        verify(eventPublisher).publishOrderEvent(anyLong(), anyLong(), eq("ORDER"), eq("CANCELLED"), anyString(), isNull());
         verify(bookClient).updateStock(eq(bookId), eq(1));
     }
 
@@ -274,7 +274,7 @@ public class OrderServiceImplTest {
                 .isInstanceOf(RuntimeException.class);
 
         // Verify compensation
-        verify(walletClient).addMoney(any()); // Refund
+        verify(eventPublisher).publishOrderEvent(anyLong(), anyLong(), eq("PAYMENT"), eq("REFUND_REQUESTED"), anyString(), anyDouble());
         verify(bookClient).updateStock(eq(bookId), anyInt()); // Restore stock
     }
 
@@ -477,9 +477,9 @@ public class OrderServiceImplTest {
         when(razorpayService.isSimulationMode()).thenReturn(true);
         when(razorpayService.createOrder(anyDouble())).thenReturn("rzp_sim");
 
-        // Base 500, Qty 5 -> 15% discount -> 425.0
+        // Base 500, Qty 5 -> 15% discount -> 425.0, 8% tax = 34, shipping = 0 -> 425 + 34 = 459.0
         orderService.initiateRazorpayPayment(userId, null, null);
-        verify(razorpayService).createOrder(425.0);
+        verify(razorpayService).createOrder(459.0);
     }
 
     // ──────────────────────────────────────────────────────
@@ -579,8 +579,8 @@ public class OrderServiceImplTest {
         List<Order> result = orderService.checkout(CheckoutRequest.builder()
                 .userId(userId).paymentMethod("COD").addressId(1L).build());
 
-        // 100 * 3 * (1 - 0.10) = 270
-        assertThat(result.get(0).getAmountPaid()).isEqualTo(270.0);
+        // 100 * 3 * (1 - 0.10) = 270, 8% tax = 21.6, shipping = 0 -> 270 + 21.6 = 291.6
+        assertThat(result.get(0).getAmountPaid()).isEqualTo(291.6);
     }
 
     @Test
@@ -599,8 +599,8 @@ public class OrderServiceImplTest {
         List<Order> result = orderService.checkout(CheckoutRequest.builder()
                 .userId(userId).paymentMethod("COD").addressId(1L).build());
 
-        // 1000 * (1 - 0.05) = 950
-        assertThat(result.get(0).getAmountPaid()).isEqualTo(950.0);
+        // 1000 * (1 - 0.05) = 950, 8% tax = 76, shipping = 0 -> 950 + 76 = 1026.0
+        assertThat(result.get(0).getAmountPaid()).isEqualTo(1026.0);
     }
 
     @Test
@@ -619,8 +619,8 @@ public class OrderServiceImplTest {
         List<Order> result = orderService.checkout(CheckoutRequest.builder()
                 .userId(userId).paymentMethod("COD").addressId(1L).discountCode("BOOKNEST10").build());
 
-        // 100 * (1 - 0.10) = 90
-        assertThat(result.get(0).getAmountPaid()).isEqualTo(90.0);
+        // 100 * (1 - 0.10) = 90, 8% tax = 7.2, shipping = 12 -> 90 + 7.2 + 12 = 109.2
+        assertThat(result.get(0).getAmountPaid()).isEqualTo(109.2);
     }
 
     @Test
@@ -678,15 +678,12 @@ public class OrderServiceImplTest {
                 .statusHistory(new java.util.ArrayList<>())
                 .build();
         when(orderRepository.findById(2L)).thenReturn(Optional.of(order));
-        when(walletClient.getWalletByUserId(userId))
-                .thenReturn(new ApiResponse<>(true, "ok",
-                        com.booknest.orderservice.dto.WalletDTO.builder().walletId(1L).build()));
         when(orderRepository.save(any(Order.class))).thenAnswer(i -> i.getArgument(0));
 
         Order result = orderService.cancelOrder(2L);
 
         assertThat(result.getOrderStatus()).isEqualTo(OrderStatus.CANCELLED);
-        verify(walletClient).addMoney(any());
+        verify(eventPublisher).publishOrderEvent(anyLong(), anyLong(), eq("PAYMENT"), eq("REFUND_REQUESTED"), anyString(), anyDouble());
     }
 
     @Test
@@ -923,5 +920,63 @@ public class OrderServiceImplTest {
 
         assertThat(result).hasSize(2);
         verify(cartClient).clearCartByUserId(userId);
+    }
+
+    @Test
+    void testChangeStatus_PaymentPending_To_Confirmed() {
+        Order order = Order.builder().orderId(1L).orderStatus(OrderStatus.PAYMENT_PENDING).statusHistory(new ArrayList<>()).build();
+        when(orderRepository.findById(1L)).thenReturn(Optional.of(order));
+        when(orderRepository.save(any(Order.class))).thenAnswer(i -> i.getArgument(0));
+
+        Order result = orderService.changeStatus(1L, OrderStatus.CONFIRMED);
+
+        assertThat(result.getOrderStatus()).isEqualTo(OrderStatus.CONFIRMED);
+        assertThat(result.getStatusHistory()).hasSize(1);
+    }
+
+    @Test
+    void testInitiateRazorpayPayment_CreatesPaymentPendingOrders() throws Exception {
+        when(cartClient.getCartByUserId(userId)).thenReturn(new ApiResponse<>(true, "ok", testCart));
+        when(addressRepository.findByCustomerIdAndIsActiveTrue(userId)).thenReturn(Collections.singletonList(testAddress));
+        when(bookClient.getBookById(bookId)).thenReturn(new ApiResponse<>(true, "ok", testBook));
+        when(razorpayService.createOrder(anyDouble())).thenReturn("rzp_order_123");
+        when(orderRepository.saveAll(anyList())).thenAnswer(i -> i.getArgument(0));
+
+        orderService.initiateRazorpayPayment(userId, null, null);
+
+        verify(orderRepository).saveAll(argThat(orders -> 
+            java.util.stream.StreamSupport.stream(orders.spliterator(), false)
+                .allMatch(o -> o.getOrderStatus() == OrderStatus.PLACED || o.getOrderStatus() == OrderStatus.PAYMENT_PENDING)
+        ));
+    }
+
+    @Test
+    void testHandlePaymentWebhook_GenericEvent() {
+        String payload = "{\"event\":\"some.other.event\",\"payload\":{}}";
+        String signature = "sig";
+        when(razorpayService.verifyWebhookSignature(payload, signature)).thenReturn(true);
+
+        // Should just return without doing anything
+        orderService.handlePaymentWebhook(payload, signature);
+
+        verify(orderRepository, never()).findByRazorpayOrderId(anyString());
+    }
+
+    @Test
+    void testCheckout_NullPaymentDetailsForOnline() {
+        when(cartClient.getCartByUserId(userId)).thenReturn(new ApiResponse<>(true, "ok", testCart));
+        when(addressRepository.findByAddressIdAndCustomerIdAndIsActiveTrue(1L, userId)).thenReturn(Optional.of(testAddress));
+        when(bookClient.getBookById(bookId)).thenReturn(new ApiResponse<>(true, "ok", testBook));
+
+        CheckoutRequest request = CheckoutRequest.builder()
+                .userId(userId)
+                .paymentMethod("ONLINE")
+                .addressId(1L)
+                .paymentDetails(null)
+                .build();
+
+        assertThatThrownBy(() -> orderService.checkout(request))
+                .isInstanceOf(com.booknest.orderservice.exception.InvalidPaymentException.class)
+                .hasMessageContaining("paymentDetails are required");
     }
 }

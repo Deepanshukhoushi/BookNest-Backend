@@ -49,6 +49,9 @@ public class Review {
     @Column(nullable = false, length = 2000)
     private String comment;
 
+    @Column(length = 100)
+    private String reviewerName;
+
     /** Stored as 'review_date' in DB but serialized as 'createdAt' in API responses to align with frontend contract. */
     @org.hibernate.annotations.CreationTimestamp
     @Column(nullable = false, updatable = false)

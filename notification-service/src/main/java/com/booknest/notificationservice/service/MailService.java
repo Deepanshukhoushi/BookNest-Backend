@@ -25,6 +25,9 @@ public class MailService {
     private final JavaMailSender mailSender;
     private final TemplateEngine templateEngine;
 
+    @org.springframework.beans.factory.annotation.Value("${FRONTEND_URL:http://localhost:4200}")
+    private String frontendUrl;
+
     /**
      * Sends an order confirmation email asynchronously.
      *
@@ -38,6 +41,7 @@ public class MailService {
         try {
             Context context = new Context();
             context.setVariables(variables);
+            context.setVariable("frontendUrl", frontendUrl);
             String htmlContent = templateEngine.process("transactional-order-confirmation", context);
 
             MimeMessage mimeMessage = mailSender.createMimeMessage();
