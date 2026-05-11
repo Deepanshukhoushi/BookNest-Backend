@@ -15,7 +15,9 @@ public class RateLimiterConfig {
             if (xff != null && !xff.isBlank()) {
                 return Mono.just(xff.split(",")[0]);
             }
+            
             return Mono.just(exchange.getRequest().getRemoteAddress() != null
+                    && exchange.getRequest().getRemoteAddress().getAddress() != null
                     ? exchange.getRequest().getRemoteAddress().getAddress().getHostAddress()
                     : "anonymous");
         };
